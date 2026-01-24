@@ -8,44 +8,36 @@ use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\DiplomaController;
 use App\Http\Controllers\Api\LikeController;
 use App\Http\Controllers\Api\InstituteController;
-use App\Http\Controllers\Api\BookingController; // استدعاء المتحكم الجديد
+use App\Http\Controllers\Api\BookingController;
 
 /*
 |--------------------------------------------------------------------------
-| Public Routes (المسارات العامة)
+| Public Routes
 |--------------------------------------------------------------------------
 */
-// الكورسات
-    Route::get('/courses', [CourseController::class, 'index']); // عرض كل الكورسات
-    //Route::get('/courses/{course}', [CourseController::class, 'show']); // عرض كورس محدد
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/courses', [CourseController::class, 'index']);
 
-// مسارات العرض العام (تتطلب تسجيل دخول فقط لرؤية حالة المفضلة)
+// مسارات العرض العام (تحتاج تسجيل دخول فقط لرؤية حالة المفضلة)
 Route::prefix('view')->middleware('auth:sanctum')->group(function () {
-    // الكورسات
-    //Route::get('/courses', [CourseController::class, 'index']);
     Route::get('/courses/{course}', [CourseController::class, 'show']);
-
-    // الدبلومات
     Route::get('/diplomas', [DiplomaController::class, 'index']);
     Route::get('/diplomas/{diploma}', [DiplomaController::class, 'show']);
-    //المعاهد
     Route::get('/institutes', [InstituteController::class, 'index']);
-Route::get('/institutes/{institute}', [InstituteController::class, 'show']);
-// 2. مسارات عرض الأقسام للعامة (أو الطلاب)
+    Route::get('/institutes/{institute}', [InstituteController::class, 'show']);
     Route::get('/departments', [DepartmentController::class, 'index']);
     Route::get('/departments/{department}', [DepartmentController::class, 'show']);
 });
 
 /*
 |--------------------------------------------------------------------------
-| Protected Routes (المسارات المحمية - تتطلب تسجيل دخول)
+| Protected Routes (Shared & Student)
 |--------------------------------------------------------------------------
 */
 Route::middleware('auth:sanctum')->group(function () {
 
-    // 1. بيانات المستخدم والخروج
+    // بيانات المستخدم الشخصية
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
@@ -55,47 +47,55 @@ Route::middleware('auth:sanctum')->group(function () {
         return response()->json(['message' => 'تم تسجيل الخروج بنجاح']);
     });
 
-    // 2. المفضلة (لايك)
+    // العمليات الخاصة بالطلاب والزبائن
     Route::post('/like/toggle', [LikeController::class, 'toggle']);
-
-    // 3. نظام الحجوزات - الطالب (جديد)
     Route::post('/booking/bookItem', [BookingController::class, 'bookItem']);
 
-    // 4. إدارة الكورسات والدبلومات والحجوزات (للموظفين فقط)
-    // نجمعها تحت ميدل وير الصلاحيات
+    /*
+    |--------------------------------------------------------------------------
+    | Secretary & Admin Routes (إدارة النظام)
+    |--------------------------------------------------------------------------
+    */
+    // هنا نطبق الميدلوير المخصص الجديد لحماية كل ما يخص الإدارة
+    Route::middleware(['is_secretary'])->group(function () {
 
-    // إدارة الكورسات
-    Route::middleware(['permission:course.manage'])->prefix('courses')->group(function () {
-        Route::post('/store', [CourseController::class, 'store']);
-        Route::post('/update/{course}', [CourseController::class, 'update']);
-        Route::delete('/destroy/{course}', [CourseController::class, 'destroy']);
-    });
+        // إدارة الكورسات
+        Route::prefix('courses')->group(function () {
+            Route::post('/store', [CourseController::class, 'store']);
+            Route::post('/update/{course}', [CourseController::class, 'update']);
+            Route::delete('/destroy/{course}', [CourseController::class, 'destroy']);
+        });
 
-    // إدارة الدبلومات
-    Route::middleware(['permission:diploma.manage'])->prefix('diplomas')->group(function () {
-        Route::post('/store', [DiplomaController::class, 'store']);
-        Route::post('/update/{diploma}', [DiplomaController::class, 'update']);
-        Route::delete('/destroy/{diploma}', [DiplomaController::class, 'destroy']);
-    });
-    //إدارة المعاهد
-    Route::middleware(['permission:institute.manage'])->prefix('institutes')->group(function () {
-        Route::post('/store', [InstituteController::class, 'store']);
-        Route::post('/update/{institute}', [InstituteController::class, 'update']);
-        Route::delete('/destroy/{institute}', [InstituteController::class, 'destroy']);
-    });
-    // --- إدارة الأقسام (للموظفين فقط بناءً على الصلاحية في Seeder) ---
-    Route::middleware(['permission:department.manage'])->prefix('departments')->group(function () {
-        Route::post('/store', [DepartmentController::class, 'store']);
-        Route::post('/update/{department}', [DepartmentController::class, 'update']);
-        Route::delete('/destroy/{department}', [DepartmentController::class, 'destroy']);
-    });
+        // إدارة الدبلومات
+        Route::prefix('diplomas')->group(function () {
+            Route::post('/store', [DiplomaController::class, 'store']);
+            Route::post('/update/{diploma}', [DiplomaController::class, 'update']);
+            Route::delete('/destroy/{diploma}', [DiplomaController::class, 'destroy']);
+        });
 
-    // إدارة الحجوزات والمالية (للسكرتير)
-    Route::middleware(['permission:course.manage'])->prefix('booking')->group(function () {
-        // عرض الحجوزات المعلقة للسكرتير
-        Route::get('/pending', [BookingController::class, 'pending']);
-        // إنهاء الحجز (تأكيد الدفع وتغيير دور الطالب)
-        Route::post('/complete', [BookingController::class, 'complete']);
-    });
+        // إدارة المعاهد
+        Route::prefix('institutes')->group(function () {
+            Route::post('/store', [InstituteController::class, 'store']);
+            Route::post('/update/{institute}', [InstituteController::class, 'update']);
+            Route::delete('/destroy/{institute}', [InstituteController::class, 'destroy']);
+        });
 
+        // إدارة الأقسام
+        Route::prefix('departments')->group(function () {
+            Route::post('/store', [DepartmentController::class, 'store']);
+            Route::post('/update/{department}', [DepartmentController::class, 'update']);
+            Route::delete('/destroy/{department}', [DepartmentController::class, 'destroy']);
+        });
+
+        // إدارة الحجوزات والمالية
+        Route::prefix('booking')->group(function () {
+            Route::get('/pending', [BookingController::class, 'pending']);
+            Route::post('/complete', [BookingController::class, 'complete']);
+        });
+    });
 });
+Route::any('{any}', function () {
+   return response()->json([
+        'status' => 'false',
+        'message' => 'الصفحة التي طلبتها غير موجودة.'], 404);
+})->where('any', '.*');
