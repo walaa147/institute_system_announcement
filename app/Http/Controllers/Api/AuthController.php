@@ -34,6 +34,7 @@ public function register(Request $request)
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
+            'message' => 'تم إنشاء الحساب بنجاح',
             'access_token' => $token,
             'token_type' => 'Bearer',
         ]);
