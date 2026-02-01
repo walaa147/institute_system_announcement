@@ -16,7 +16,7 @@ class Diploma extends Model
         'title_ar',
         'title_en',
         'description_ar',
-        'description_ar',
+        'description_en',
         'total_cost',
         'photo_path',
         'is_active',
