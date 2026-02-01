@@ -18,7 +18,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade')->comment('الطالب الذي قام بالحجز');
             $table->foreignId('course_id')->constrained('courses')->onDelete('cascade')->comment('الكورس المحجوز');
 
-            // ضمان عدم حجز المستخدم لنفس الكورس مرتين (حجز مبدئي واحد لكل كورس)
+            // ضمان عدم حجز المستخدم لنفس الكورس مرتين   (حجز مبدئي واحد لكل كورس)
             $table->unique(['user_id', 'course_id']);
 
             // التفاصيل المالية
