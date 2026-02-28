@@ -66,4 +66,10 @@ public function likes(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasOne(UserProfile::class);
     }
+
+    public function favorites()
+{
+    return $this->hasMany(Favorite::class);
+}
+
 }

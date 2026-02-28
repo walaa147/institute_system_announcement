@@ -21,6 +21,8 @@ return new class extends Migration
         // ستنشئ حقلي likeable_type و likeable_id
         $table->morphs('likeable');
 
+        $table->unique(['user_id', 'likeable_id', 'likeable_type']);
+
         $table->timestamps();
     });
 

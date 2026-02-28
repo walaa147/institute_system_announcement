@@ -79,5 +79,15 @@ public function institute()
     {
         return $this->belongsTo(Institute::class);
     }
+
+    public function bookings()
+{
+    return $this->morphMany(Booking::class, 'bookable');
+}
+
+public function waitingLists()
+{
+    return $this->morphMany(WaitingList::class, 'bookable');
+}
 }
 

@@ -71,4 +71,14 @@ public function department()
     {
         return $this->belongsTo(Department::class);
     }
+
+    public function bookings()
+{
+    return $this->morphMany(Booking::class, 'bookable');
+}
+
+public function waitingLists() 
+{
+    return $this->morphMany(WaitingList::class, 'bookable');
+}
 }

@@ -46,4 +46,13 @@ class Booking extends Model
 {
     return $this->belongsTo(Diploma::class);
 }
+
+public function advertisement()
+    {
+        return $this->belongsTo(Advertisement::class);
+    }
+    public function bookable()
+{
+    return $this->morphTo();
+}
 }

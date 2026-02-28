@@ -51,4 +51,15 @@ public function users()
     {
         return $this->hasMany(User::class);
     }
+
+
+
+public function favorites()
+{
+    return $this->hasMany(Favorite::class);
+}
+public function advertisements()
+{
+    return $this->hasMany(Advertisement::class);
+}
 }
