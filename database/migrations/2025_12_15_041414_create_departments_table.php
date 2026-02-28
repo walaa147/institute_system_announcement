@@ -18,7 +18,11 @@ return new class extends Migration
         $table->foreignId('institute_id')->constrained('institutes')->onDelete('cascade');
 
         $table->boolean('is_active')->default(true);
+
+        $table->string('slug')->unique();
+
         $table->timestamps();
+        $table->softDeletes();
 
         // لجعل اسم القسم فريداً داخل المعهد الواحد فقط
         $table->unique(['name_ar', 'institute_id']);
