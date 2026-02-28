@@ -28,7 +28,7 @@ return new class extends Migration
         $table->string('photo_path')->nullable(); // صورة الدورة
 
         // ربط بالقسم
-        $table->foreignId('department_id')->constrained()->onDelete('cascade');
+        $table->foreignId('department_id')->nullable()->constrained()->onDelete('cascade');
 
         // منطق الفلاتر (حجز أو لايك)
         $table->boolean('is_open')->default(true); // true = حجز، false = لايك
@@ -37,6 +37,8 @@ $table->foreignId('created_by')->nullable()->constrained('employees')->onDelete(
 
         // الموظف الذي قام بآخر تعديل
         $table->foreignId('updated_by')->nullable()->constrained('employees')->onDelete('set null');
+
+        $table->foreignId('institute_id')->constrained('institutes')->cascadeOnDelete();
 
         $table->timestamps();
     });

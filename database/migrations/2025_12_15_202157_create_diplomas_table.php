@@ -29,6 +29,8 @@ $table->boolean('is_open')->default(true);
         $table->foreignId('created_by')->constrained('employees');
         $table->foreignId('updated_by')->nullable()->constrained('employees');
 
+        $table->foreignId('department_id')->nullable()->constrained('departments')->onDelete('cascade');
+
         $table->timestamps();
     });
 }

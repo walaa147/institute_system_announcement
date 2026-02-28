@@ -74,5 +74,10 @@ public function likes(): \Illuminate\Database\Eloquent\Relations\MorphMany
     // ربطها بالموديل الجديد واستخدام العلاقة "likeable"
     return $this->morphMany(Like::class, 'likeable');
 }
+
+public function institute()
+    {
+        return $this->belongsTo(Institute::class);
+    }
 }
 

@@ -65,4 +65,10 @@ class Diploma extends Model
     // ربطها بالموديل الجديد واستخدام العلاقة "likeable"
     return $this->morphMany(Like::class, 'likeable');
 }
+
+
+public function department()
+    {
+        return $this->belongsTo(Department::class);
+    }
 }
