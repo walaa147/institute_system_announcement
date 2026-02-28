@@ -17,6 +17,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+
+        'institute_id'
     ];
 
     protected $hidden = [
@@ -49,5 +51,19 @@ public function likes(): \Illuminate\Database\Eloquent\Relations\HasMany
             ->where('course_id', $courseId)
             ->where('is_paid', true)
             ->exists();
+    }
+
+
+
+    // علاقة المستخدم بالمعهد (للسكرتير)
+    public function institute()
+    {
+        return $this->belongsTo(Institute::class);
+    }
+
+    // علاقة المستخدم بالملف الشخصي
+    public function profile()
+    {
+        return $this->hasOne(UserProfile::class);
     }
 }

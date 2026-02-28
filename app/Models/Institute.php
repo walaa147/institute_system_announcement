@@ -4,13 +4,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Institute extends Model
 {
     use HasFactory;
+    use SoftDeletes;
 
     // الحقول القابلة للتعبئة (Mass Assignment)
-    protected $fillable = [
+  /*  protected $fillable = [
         'name_ar',
         'name_en',
         'description',
@@ -18,7 +20,8 @@ class Institute extends Model
         'photo_path',
         'phone',
         'email',
-    ];
+    ];*/
+    protected $guarded = ['id'];
 
     /**
      * علاقة المعهد بالموظفين
@@ -43,4 +46,9 @@ public function courses()
 {
     return $this->hasManyThrough(Course::class, Department::class);
 }
+
+public function users()
+    {
+        return $this->hasMany(User::class);
+    }
 }
