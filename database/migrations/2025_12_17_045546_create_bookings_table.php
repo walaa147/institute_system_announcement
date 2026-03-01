@@ -19,7 +19,9 @@ return new class extends Migration
            // $table->foreignId('course_id')->constrained('courses')->onDelete('cascade')->comment('الكورس المحجوز');
 
             // ضمان عدم حجز المستخدم لنفس الكورس مرتين   (حجز مبدئي واحد لكل كورس)
-            $table->unique(['user_id', 'course_id']);
+            //$table->unique(['user_id', 'course_id']);
+            $table->unique(['user_id', 'bookable_id', 'bookable_type'], 'user_bookable_unique');
+
 
             // التفاصيل المالية
             $table->decimal('original_price', 10, 2)->comment('سعر الكورس الأصلي عند الحجز');
