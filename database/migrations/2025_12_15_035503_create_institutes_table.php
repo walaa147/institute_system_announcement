@@ -13,20 +13,21 @@ return new class extends Migration
 {
     Schema::create('institutes', function (Blueprint $table) {
         $table->id();
-        $table->string('name_ar', 255); // اسم المعهد بالعربي
+        $table->string('slug', 50)->unique(); // سلاگ المعهد لاستخدامه في الروابط
+         $table->string('code', 50)->unique(); // كود المعهد لاستخدامه في
+          $table->string('name_ar', 255); // اسم المعهد بالعربي
         $table->string('name_en', 255)->nullable(); // اسم المعهد بالانجليزي
-        $table->text('description')->nullable();
+        $table->text('description_ar')->nullable();
+        $table->text('description_en')->nullable();
         $table->string('address', 255)->nullable(); // تم تغييره لـ string لأنه أنسب للعنوان
-        //$table->string('photo_path', 2048)->nullable(); // مسار الصورة يفضل أن يكون أطول قليلاً
 
-        // إضافات اختيارية مهمة للمعهد
-        $table->string('phone', 20)->nullable(); // رقم التواصل
-        $table->string('email', 100)->nullable(); // ايميل المعهد الرسمي
+            $table->string('phone', 20)->nullable(); // رقم التواصل
+        $table->string('email', 100)->unique()->nullable(); // ايميل المعهد الرسمي
 
 
         $table->string('website')->nullable();
-        $table->string('slug')->unique();
-        $table->decimal('lat', 10, 8)->nullable();
+        $table->decimal('lat', 10, 8)->nullable();// خط العرض
+
         $table->decimal('lng', 11, 8)->nullable();
         $table->string('logo',2048)->nullable();
         $table->string('cover_photo' , 2048)->nullable();
@@ -35,6 +36,8 @@ return new class extends Migration
         $table->integer('priority_level')->default(0);
         $table->integer('points_balance')->default(0);
         $table->boolean('status')->default(true);
+
+
 
 
         $table->timestamps();

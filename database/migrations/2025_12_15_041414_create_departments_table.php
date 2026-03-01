@@ -10,16 +10,18 @@ return new class extends Migration
 {
     Schema::create('departments', function (Blueprint $table) {
         $table->id();
+         $table->string('slug')->unique();
         $table->string('name_ar', 100);
         $table->string('name_en', 100)->nullable();
-        $table->text('description')->nullable();
+        $table->text('description_ar')->nullable();
+        $table->text('description_en')->nullable();
 
         // ربط القسم بالمعهد
         $table->foreignId('institute_id')->constrained('institutes')->onDelete('cascade');
 
         $table->boolean('is_active')->default(true);
 
-        $table->string('slug')->unique();
+
 
         $table->timestamps();
         $table->softDeletes();
