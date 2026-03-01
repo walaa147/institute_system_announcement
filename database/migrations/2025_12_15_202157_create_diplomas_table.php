@@ -31,7 +31,7 @@ return new class extends Migration
         $table->boolean('is_available')->default(true);// هل يمكن للطلاب التسجيل في الدبلوم أم لا
 $table->integer('total_likes')->default(0); // عدد الإعجابات بالدبلوم
         // حقول التتبع لربطها بالموظف (مثل الكورسات)
-        $table->foreignId('created_by')->constrained('users')->onDelete('set null')->nullable();// الموظف الذي قام بإنشاء الدبلوم
+        $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null');// الموظف الذي قام بإنشاء الدبلوم
         $table->foreignId('updated_by')->nullable()->constrained('users')->onDelete('set null');// الموظف الذي قام بآخر تعديل
 
         $table->foreignId('department_id')->nullable()->constrained('departments')->onDelete('cascade');
