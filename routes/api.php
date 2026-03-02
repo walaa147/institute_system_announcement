@@ -99,3 +99,30 @@ Route::any('{any}', function () {
         'status' => 'false',
         'message' => 'الصفحة التي طلبتها غير موجودة.'], 404);
 })->where('any', '.*');
+
+
+
+
+
+
+
+// v1 API Routes (للتطوير المستقبلي والتحديثات الكبيرة)
+
+Route::prefix('v1')->group(function () {
+
+    // مسارات المصادقة Auth
+    Route::prefix('auth')->controller(AuthController::class)->group(function () {
+
+        // المسارات العامة (للزوار والطلاب الجدد)
+        Route::post('register', 'register');
+        Route::post('login', 'login');
+
+        // المسارات المحمية (لا يمكن الدخول لها إلا بتوكن صالح)
+        Route::middleware('auth:sanctum')->group(function () {
+            Route::post('logout', 'logout');
+        });
+
+    });
+
+
+});
