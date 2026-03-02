@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\UserProfile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 class AuthService
@@ -19,30 +20,30 @@ class AuthService
         return DB::transaction(function () use ($data) {
             // 1. إنشاء سجل المستخدم الأساسي
             $user = User::create([
-                'name'     => $data['full_name_ar'],
-                'email'    => $data['email'] ?? null,
-                'password' => Hash::make($data['password']),
-            ]);
+            'name'     => $data['name'],
+            'email'    => $data['email'],
+            'password' => Hash::make($data['password']),
 
-            // 2. إنشاء تفاصيل الملف الشخصي المرافقة للمستخدم
-            UserProfile::create([
-                'user_id'      => $user->id,
-                'full_name_ar' => $data['full_name_ar'],
-                'phone_number' => $data['phone_number'] ?? null,
-                'fcm_token'    => $data['fcm_token'] ?? null,
             ]);
-
-            // 3. إسناد دور (طالب) للمستخدم الجديد عبر مكتبة Spatie
             $user->assignRole('student');
+            $user->profile()->create([
+            'full_name_ar' =>$data['name'],  // نستخدم الاسم المدخل حالياً كاسم كامل مؤقت
+            'is_active'    => true,
+            'profile_completed' => false
+        ]);
+
+
 
             // 4. إصدار توكن الدخول (Sanctum)
             $token = $user->createToken('auth_token')->plainTextToken;
 
             // 5. إرجاع المستخدم مع تفاصيل ملفه الشخصي والتوكن
             return [
-                'user'  => $user->load('profile'),
-                'token' => $token
+                'user'  => $user->load('profile','roles'),
+                 'token' => $token,
+                'has_profile' => false // لأنه لم يدخل بياناته الشخصية بعد
             ];
+
         });
     }
 

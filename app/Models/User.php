@@ -64,7 +64,7 @@ public function likes(): \Illuminate\Database\Eloquent\Relations\HasMany
     // علاقة المستخدم بالملف الشخصي
     public function profile()
     {
-        return $this->hasOne(UserProfile::class);
+        return $this->hasOne(UserProfile::class,'user_id');
     }
 
     public function favorites()

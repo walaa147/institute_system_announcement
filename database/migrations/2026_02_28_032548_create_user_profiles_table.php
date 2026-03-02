@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
 
             $table->string('code', 20)->unique()->nullable(); // كود الطالب
-            $table->string('full_name_ar', 255);
+            $table->string('full_name_ar', 255)->nullable();
             $table->string('full_name_en', 255)->nullable();
             $table->string('phone_number', 100)->nullable()->unique();
 
@@ -27,6 +27,7 @@ return new class extends Migration
 
             $table->text('fcm_token')->nullable(); // لإشعارات الجوال
             $table->boolean('is_active')->default(true);
+            $table->boolean('profile_completed')->default(false);
 
             $table->timestamps();
             $table->softDeletes();

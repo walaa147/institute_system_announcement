@@ -14,7 +14,8 @@ class RegisterRequest extends ApiBaseRequest
     {
         return [
             // الاسم مطلوب (سنقوم بتخزينه في جدول المستخدمين والتفاصيل)
-            'full_name_ar' => 'required|string|max:150',
+            'full_name_ar' => 'nullable|string|max:150',
+            'name' => 'required|string|max:150', // هذا الحقل الجديد لاسم المستخدم
 
             // الإيميل مطلوب إذا لم يتم إرسال رقم هاتف، ويجب أن يكون غير مكرر
             'email' => 'required_without:phone_number|nullable|email|unique:users,email',
@@ -30,15 +31,5 @@ class RegisterRequest extends ApiBaseRequest
         ];
     }
 
-    public function messages(): array
-    {
-        return [
-            'full_name_ar.required' => 'يرجى إدخال الاسم الكامل.',
-            'email.required_without' => 'يجب إدخال البريد الإلكتروني أو رقم الهاتف.',
-            'email.unique' => 'هذا البريد الإلكتروني مسجل مسبقاً.',
-            'phone_number.unique' => 'رقم الهاتف هذا مسجل مسبقاً.',
-            'password.min' => 'كلمة المرور يجب أن لا تقل عن 8 أحرف.',
-            'password.confirmed' => 'كلمتا المرور غير متطابقتين.',
-        ];
-    }
+
 }
