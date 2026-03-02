@@ -15,7 +15,7 @@ use App\Http\Controllers\Api\BookingController;
 | Public Routes
 |--------------------------------------------------------------------------
 */
-Route::post('/register', [AuthController::class, 'register']);
+//Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/courses', [CourseController::class, 'index']);
 
@@ -94,12 +94,12 @@ Route::middleware('auth:sanctum')->group(function () {
         });
     });
 });
-Route::any('{any}', function () {
+/*Route::any('{any}', function () {
    return response()->json([
         'status' => 'false',
         'message' => 'الصفحة التي طلبتها غير موجودة.'], 404);
 })->where('any', '.*');
-
+*/
 
 
 

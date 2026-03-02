@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('code', 20)->unique()->nullable(); // كود الطالب
             $table->string('full_name_ar', 255);
             $table->string('full_name_en', 255)->nullable();
-            $table->string('phone_number', 100)->unique();
+            $table->string('phone_number', 100)->nullable()->unique();
 
             $table->enum('gender', ['male', 'female'])->nullable();
             $table->string('logo', 2048)->nullable(); // الصورة الشخصية

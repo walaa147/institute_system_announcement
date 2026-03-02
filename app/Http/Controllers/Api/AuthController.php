@@ -19,12 +19,13 @@ class AuthController extends Controller
 
     public function register(RegisterRequest $request)
     {
-        return $this->successResponse(
-            $this->authService->registerStudent($request->validated()),
+       return $this->successResponse(
+           $this->authService->registerStudent($request->validated()),
             'تم إنشاء الحساب بنجاح',
-            201
+            //201
         );
     }
+
 
     public function login(LoginRequest $request)
     {

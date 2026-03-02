@@ -6,6 +6,10 @@ use App\Http\Requests\Api\ApiBaseRequest;
 
 class RegisterRequest extends ApiBaseRequest
 {
+    public function authorize(): bool
+{
+    return true;
+}
     public function rules(): array
     {
         return [
