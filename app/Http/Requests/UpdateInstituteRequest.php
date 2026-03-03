@@ -13,11 +13,12 @@ class UpdateInstituteRequest extends FormRequest
         return [
             'name_ar'     => 'sometimes|string|max:255',
             'name_en'     => 'nullable|string|max:255',
-            'description' => 'nullable|string',
+            'description_ar' => 'nullable|string',
+            'description_en' => 'nullable|string',
             'address'     => 'nullable|string|max:255',
             'phone'       => 'nullable|string|max:20',
             'email'       => 'nullable|email|max:100',
-            'image'       => 'nullable|image|max:5120',
+            'logo'       => 'nullable|image|max:5120',
         ];
     }
 }
