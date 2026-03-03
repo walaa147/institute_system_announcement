@@ -19,7 +19,8 @@ class InstituteController extends Controller
     {
         $institutes = Institute::withCount(['departments', 'employees'])
             ->latest()
-            ->get();
+          //  ->get();
+            ->paginate(20);
 
         return InstituteResource::collection($institutes);
     }
@@ -46,7 +47,7 @@ class InstituteController extends Controller
             $updated = $this->service->update($institute, $request->validated());
             return new InstituteResource($updated);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'فشلت عملية التحديث: ' . $e->getMessage()], 403);
+            return response()->json(['message' => 'فشلت عملية التحديث: ' . $e->getMessage()], 500);
         }
     }
 
