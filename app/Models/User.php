@@ -12,6 +12,7 @@ class User extends Authenticatable
 {
     // أضف HasApiTokens و HasRoles هنا داخل سطر الـ use
     use HasApiTokens, HasFactory, Notifiable, HasRoles;
+    protected $guard_name = 'web'; // تحديد الحارس الافتراضي للصلاحيات
 
     protected $fillable = [
         'name',

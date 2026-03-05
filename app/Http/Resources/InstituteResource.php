@@ -3,24 +3,54 @@
 namespace App\Http\Resources;
 
 use Illuminate\Http\Resources\Json\JsonResource;
+Use Illuminate\Support\Facades\Auth;
+use App\Models\User;
 
 class InstituteResource extends JsonResource
 {
+
     public function toArray($request): array
     {
+        $user = Auth::user();
         return [
             'id'          => $this->id,
             'name_ar'     => $this->name_ar,
             'name_en'     => $this->name_en,
+            'slug'        => $this->slug,
+            'status'      => $this->status,
             'description' => $this->description,
+            // معلومات الاتصال
             'address'     => $this->address,
             'phone'       => $this->phone,
             'email'       => $this->email,
-            'image_url'   => $this->photo_path ? url('storage/' . $this->photo_path) : null,
-
-            // إحصائيات سريعة
-            'departments_count' => $this->whenCounted('departments'),
-            'employees_count'   => $this->whenCounted('employees'),
+            'website'     => $this->website,
+            // روابط الصور (توليد URL كامل إذا كانت الصورة موجودة)
+             'logo_url'    => $this->logo ? url('storage/' . $this->logo) : null,
+             'cover_photo_url' => $this->cover_photo ? url('storage/' . $this->cover_photo) : null,
+          // الموقع الجغرافي والمسافة
+            'location' => [
+                'lat'      => (float) $this->lat,
+                'lng'      => (float) $this->lng,
+                // ستظهر المسافة فقط إذا تم حسابها في الكنترولر عبر withDistance
+                'distance' => $this->when(isset($this->distance), function () {
+                    return round($this->distance, 2) . ' كم';
+                }),
+            ],
+            // إحصائيات سريعة (تظهر فقط إذا تم استدعاء withCount في الكنترولر)
+            'stats' => [
+                'departments_count' => $this->whenCounted('departments'),
+                'courses_count'     => $this->whenCounted('courses'),
+                'diplomas_count'    => $this->whenCounted('diplomas'),
+                'ads_count'         => $this->whenCounted('advertisements'),
+            ],
+            // التقييم والتميز (إذا كان لديك نظام تقييم)
+            'priority_level'    => $this->priority_level,
+            'status'            => (boolean) $this->status,
+            'commission_rate' => $this->mergeWhen(
+            ($user instanceof \App\Models\User) && $user->hasRole('super_admin'),
+            [ 'rate' => $this->commission_rate ]
+        ),
+         // إحصائيات سريعة
 
             'created_at'  => $this->created_at->format('Y-m-d H:i:s'),
         ];

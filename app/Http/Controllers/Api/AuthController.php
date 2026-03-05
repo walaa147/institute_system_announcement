@@ -21,7 +21,7 @@ class AuthController extends Controller
     {
        return $this->successResponse(
            $this->authService->registerStudent($request->validated()),
-            'تم إنشاء الحساب بنجاح',
+            __('validation.custom.auth.register_success'),
             //201
         );
     }
@@ -34,13 +34,13 @@ class AuthController extends Controller
             ? $this->authService->loginWithGoogle($request->only(['email', 'name', 'fcm_token']))
             : $this->authService->login($request->validated());
 
-        return $this->successResponse($data, 'تم تسجيل الدخول بنجاح');
+        return $this->successResponse($data, __('validation.custom.auth.login_success'));
     }
 
     public function logout(Request $request)
     {
         $this->authService->logout($request->user());
 
-        return $this->successResponse([], 'تم تسجيل الخروج بنجاح');
+        return $this->successResponse([], __('validation.custom.auth.logout_success'));
     }
 }

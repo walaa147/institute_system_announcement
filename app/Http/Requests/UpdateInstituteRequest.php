@@ -13,12 +13,21 @@ class UpdateInstituteRequest extends FormRequest
         return [
             'name_ar'     => 'sometimes|string|max:255',
             'name_en'     => 'nullable|string|max:255',
+            'code'    => 'sometimes|string|unique:institutes,code,' . $this->route('institute')->id,
             'description_ar' => 'nullable|string',
             'description_en' => 'nullable|string',
+
             'address'     => 'nullable|string|max:255',
             'phone'       => 'nullable|string|max:20',
-            'email'       => 'nullable|email|max:100',
+            'email'       => 'nullable|email|max:100|unique:institutes,email,' . $this->route('institute')->id,
             'logo'       => 'nullable|image|max:5120',
+            'cover_photo' => 'nullable|image|max:10240',
+            'commission_rate' => ['sometimes', 'numeric', 'min:0', 'max:100'],
+            'points_balance'  => ['nullable', 'integer', 'min:0'],
+            'avg_response_time'=>'nullable|numeric|min:0',
+            'lat'             => ['nullable', 'numeric', 'between:-90,90'],
+            'lng'             => ['nullable', 'numeric', 'between:-180,180'],
+            'priority_level' => ['nullable', 'integer', 'min:0'],
         ];
     }
 }

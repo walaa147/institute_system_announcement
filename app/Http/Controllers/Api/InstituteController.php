@@ -7,47 +7,71 @@ use App\Models\Institute;
 use App\Services\InstituteService;
 use App\Http\Requests\StoreInstituteRequest;
 use App\Http\Requests\UpdateInstituteRequest;
+use App\Traits\ApiResponse;
 use App\Http\Resources\InstituteResource;
+
 use Illuminate\Http\JsonResponse;
+
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Request;
 
 class InstituteController extends Controller
 {
-    public function __construct(private readonly InstituteService $service) {}
+    use ApiResponse;
+    public function __construct(protected InstituteService $service) {}
 
-    public function index(): AnonymousResourceCollection
+    public function index(Request $request): AnonymousResourceCollection
     {
-        $institutes = Institute::withCount(['departments', 'employees'])
-            ->latest()
-          //  ->get();
-            ->paginate(20);
+        // استلام إحداثيات المستخدم (إذا توفرت) لحساب المسافة برمجياً
+        $userLat = $request->lat;
+        $userLng = $request->lng;
 
-        return InstituteResource::collection($institutes);
+        $institutes = Institute::query()
+            ->active() // استخدام Scope المعاهد النشطة فقط
+            ->withDistance($userLat, $userLng) // حساب المسافة إذا أرسل المستخدم موقعه
+            ->orderBySmartPriority() // الترتيب الحاكم (الأولوية الذكية)
+            ->withCount(['departments', 'courses']) // جلب عدد الأقسام والكورسات لسرعة العرض
+            ->paginate(15);
+
+
+        return InstituteResource::collection($institutes)
+            ->additional(['message' => __('validation.custom.institute.fetched_success')]);
     }
 
     public function store(StoreInstituteRequest $request): InstituteResource|JsonResponse
-    {
+     {
+    //     $user = auth()->user();
+    //     if(!auth()->user()->can('create_institute')) {
+    //         return $this->errorResponse(__('validation.custom.institute.unauthorized'), 403);
+    //     }
         try {
             $institute = $this->service->store($request->validated());
-            return new InstituteResource($institute);
+            return $this->successResponse(new InstituteResource($institute), __('validation.custom.institute.created_success'), 201);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'فشلت عملية الإضافة: ' . $e->getMessage()], 403);
+            return $this->errorResponse($e->getMessage(), 400);
+           // return $this->errorResponse(__('validation.custom.institute.create_failed'), 403);
         }
     }
 
-    public function show(Institute $institute): InstituteResource
+    public function show(Institute $institute): InstituteResource|JsonResponse
     {
-        $institute->loadCount(['departments', 'employees']);
+        // منع الوصول للمعهد إذا كان معطلاً (status: 0) [cite: 14, 196]
+        if (!$institute->status) {
+            return $this->errorResponse(__('validation.custom.institute.disabled'), 404);
+        }
+
+        $institute->loadCount(['departments', 'courses', 'advertisements']);
         return new InstituteResource($institute);
     }
+
 
     public function update(UpdateInstituteRequest $request, Institute $institute): InstituteResource|JsonResponse
     {
         try {
             $updated = $this->service->update($institute, $request->validated());
-            return new InstituteResource($updated);
+            return $this->successResponse(new InstituteResource($updated), __('validation.custom.institute.updated_success'));
         } catch (\Exception $e) {
-            return response()->json(['message' => 'فشلت عملية التحديث: ' . $e->getMessage()], 500);
+            return $this->errorResponse(__('validation.custom.institute.update_failed') , 500);
         }
     }
 
@@ -55,9 +79,26 @@ class InstituteController extends Controller
     {
         try {
             $this->service->delete($institute);
-            return response()->json(['message' => 'تم حذف المعهد بنجاح', 'status' => 'success']);
+            return $this->successResponse(null, __('validation.custom.institute.deleted_success'));
         } catch (\Exception $e) {
-            return response()->json(['message' => 'فشلت عملية الحذف', 'error' => $e->getMessage()], 500);
+            return $this->errorResponse(__('validation.custom.institute.delete_failed'), 500);
         }
     }
+    /**
+ * تفعيل أو تعطيل المعهد
+ */
+public function toggleStatus(Institute $institute): JsonResponse
+{
+    try {
+        $updated = $this->service->toggleStatus($institute);
+
+        $message = $updated->status
+            ? __('validation.custom.institute.enabled_institute')
+            : __('validation.custom.institute.disabled_institute');
+
+        return $this->successResponse(new InstituteResource($updated), $message);
+    } catch (\Exception $e) {
+        return $this->errorResponse(__('validation.custom.institute.status_update_failed'), 500);
+    }
+}
 }

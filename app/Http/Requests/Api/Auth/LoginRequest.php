@@ -4,11 +4,19 @@ namespace App\Http\Requests\Api\Auth;
 
 use App\Http\Requests\Api\ApiBaseRequest;
 
+
 class LoginRequest extends ApiBaseRequest
 {
+    public function authorize(): bool
+    {
+        return true;
+    }
     public function rules(): array
     {
         return [
+
+
+
             // معرف الدخول (الإيميل أو الهاتف) مطلوب إذا لم يتم إرسال توكن جوجل
             'login_id' => 'required_without:google_token|string',
 
@@ -23,12 +31,5 @@ class LoginRequest extends ApiBaseRequest
         ];
     }
 
-    public function messages(): array
-    {
-        return [
-            'login_id.required_without' => 'يرجى إدخال البريد الإلكتروني أو رقم الهاتف.',
-            'password.required_without' => 'يرجى إدخال كلمة المرور.',
-            'google_token.required_without' => 'حدث خطأ في استلام بيانات جوجل.',
-        ];
-    }
+
 }

@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\DiplomaController;
 use App\Http\Controllers\Api\LikeController;
 use App\Http\Controllers\Api\InstituteController;
 use App\Http\Controllers\Api\BookingController;
+use Termwind\Components\Raw;
 
 /*
 |--------------------------------------------------------------------------
@@ -16,11 +17,11 @@ use App\Http\Controllers\Api\BookingController;
 |--------------------------------------------------------------------------
 */
 //Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
-Route::get('/courses', [CourseController::class, 'index']);
+//Route::post('/login', [AuthController::class, 'login']);
+//Route::get('/courses', [CourseController::class, 'index']);
 
 // مسارات العرض العام (تحتاج تسجيل دخول فقط لرؤية حالة المفضلة)
-Route::prefix('view')->middleware('auth:sanctum')->group(function () {
+/*::prefix('view')->middleware('auth:sanctum')->group(function () {
     Route::get('/courses/{course}', [CourseController::class, 'show']);
     Route::get('/diplomas', [DiplomaController::class, 'index']);
     Route::get('/diplomas/{diploma}', [DiplomaController::class, 'show']);
@@ -34,12 +35,12 @@ Route::prefix('view')->middleware('auth:sanctum')->group(function () {
 |--------------------------------------------------------------------------
 | Protected Routes (Shared & Student)
 |--------------------------------------------------------------------------
-*/
+
 Route::middleware('auth:sanctum')->group(function () {
 
     // بيانات المستخدم الشخصية
-    Route::get('/user', function (Request $request) {
-        return $request->user();
+   Route::get('/user', function (Request $request) {
+         return $request->user();
     });
 
     Route::post('/logout', function (Request $request) {
@@ -55,7 +56,7 @@ Route::middleware('auth:sanctum')->group(function () {
     |--------------------------------------------------------------------------
     | Secretary & Admin Routes (إدارة النظام)
     |--------------------------------------------------------------------------
-    */
+
     // هنا نطبق الميدلوير المخصص الجديد لحماية كل ما يخص الإدارة
     Route::middleware(['is_secretary'])->group(function () {
 
@@ -94,7 +95,7 @@ Route::middleware('auth:sanctum')->group(function () {
         });
     });
 });
-/*Route::any('{any}', function () {
+Route::any('{any}', function () {
    return response()->json([
         'status' => 'false',
         'message' => 'الصفحة التي طلبتها غير موجودة.'], 404);
@@ -109,20 +110,50 @@ Route::middleware('auth:sanctum')->group(function () {
 // v1 API Routes (للتطوير المستقبلي والتحديثات الكبيرة)
 
 Route::prefix('v1')->group(function () {
-
+// مسارات العرض العام (تحتاج تسجيل دخول فقط )
     // مسارات المصادقة Auth
     Route::prefix('auth')->controller(AuthController::class)->group(function () {
 
         // المسارات العامة (للزوار والطلاب الجدد)
         Route::post('register', 'register');
-        Route::post('login', 'login');
+        Route::post('login', 'login');});
 
+       Route::prefix('view')->group(function () {
+          //  Route::get('/courses/{course}', [CourseController::class, 'show']);
+            //::get('/diplomas', [DiplomaController::class, 'index']);
+          //  Route::get('/diplomas/{diploma}', [DiplomaController::class, 'show']);
+            Route::get('/institutes', [InstituteController::class, 'index']);
+            Route::get('/institutes/{institute}', [InstituteController::class, 'show']);
+           // Route::get('/departments', [DepartmentController::class, 'index']);
+//Route::get('/departments/{department}', [DepartmentController::class, 'show']);
+        });
         // المسارات المحمية (لا يمكن الدخول لها إلا بتوكن صالح)
         Route::middleware('auth:sanctum')->group(function () {
-            Route::post('logout', 'logout');
+            Route::post('logout', [AuthController::class, 'logout']);
+              // بيانات المستخدم الشخصية
+   Route::get('/user', function (Request $request) {
+         return $request->user();
+    });
+    Route::middleware('auth:sanctum')->group(function () {
+
+    // --- مسارات مدير النظام فقط (Super Admin) ---
+    Route::middleware(['is_admin'])->group(function () { // سننشئ هذا الميدلوير أو نستخدم الفحص المباشر
+        Route::prefix('institutes')->controller(InstituteController::class)->group(function () {
+            Route::post('store', 'store');
+            Route::post('update/{institute}', 'update');
+            Route::delete('destroy/{institute}', 'destroy');
+            Route::post('toggle-status/{institute}', 'toggleStatus');
         });
 
+
+        });
     });
+        });
 
 
-});
+        Route::any('{any}', function () {
+   return response()->json([
+        'status' => 'false',
+        'message' => 'الصفحة التي طلبتها غير موجودة.'], 404);
+})->where('any', '.*');
+    });

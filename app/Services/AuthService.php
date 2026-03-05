@@ -63,7 +63,7 @@ class AuthService
         // التحقق من وجود المستخدم وصحة كلمة المرور
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
             throw ValidationException::withMessages([
-                'login_id' => ['بيانات الاعتماد غير صحيحة، يرجى التأكد من الحساب وكلمة المرور.'],
+                'login_id' =>[__('validation.custom.login_id.invalid')],
             ]);
         }
 

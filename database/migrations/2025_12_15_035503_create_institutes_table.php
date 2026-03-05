@@ -34,6 +34,7 @@ return new class extends Migration
 
         $table->decimal('commission_rate', 5, 2)->default(0);
         $table->integer('priority_level')->default(0);
+        $table->float('avg_response_time')->default(0);
         $table->integer('points_balance')->default(0);
         $table->boolean('status')->default(true);
 
