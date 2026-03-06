@@ -23,9 +23,8 @@ class InstituteController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         // استلام إحداثيات المستخدم (إذا توفرت) لحساب المسافة برمجياً
-        $userLat = $request->lat;
-        $userLng = $request->lng;
-
+        $userLat = $request->lat ?? $request->user_lat;
+$userLng = $request->lng ?? $request->user_lng;
         $institutes = Institute::query()
             ->active() // استخدام Scope المعاهد النشطة فقط
             ->withDistance($userLat, $userLng) // حساب المسافة إذا أرسل المستخدم موقعه
@@ -53,20 +52,30 @@ class InstituteController extends Controller
         }
     }
 
-    public function show(Institute $institute): InstituteResource|JsonResponse
+    public function show($id): InstituteResource|JsonResponse
     {
-        // منع الوصول للمعهد إذا كان معطلاً (status: 0) [cite: 14, 196]
-        if (!$institute->status) {
-            return $this->errorResponse(__('validation.custom.institute.disabled'), 404);
+        $institute = Institute::with(['departments', 'courses', 'advertisements'])->find($id);
+        if (!$institute) {
+            return $this->errorResponse(__('validation.custom.institute.not_found'), 404);
         }
+        // التحقق من حالة المعهد قبل العرض
+        $user = auth('sanctum')->user();
+        $isSuperAdmin = ($user instanceof \App\Models\User) && $user->hasRole('super_admin');
+        if (!$institute->status && !$isSuperAdmin) {
+        return $this->errorResponse(__('validation.custom.institute.institute_disabled'), 404);
+    }
 
         $institute->loadCount(['departments', 'courses', 'advertisements']);
         return new InstituteResource($institute);
     }
 
 
-    public function update(UpdateInstituteRequest $request, Institute $institute): InstituteResource|JsonResponse
+    public function update(UpdateInstituteRequest $request, $id): InstituteResource|JsonResponse
     {
+        $institute = Institute::find($id);
+        if (!$institute) {
+            return $this->errorResponse(__('validation.custom.institute.not_found'), 404);
+        }
         try {
             $updated = $this->service->update($institute, $request->validated());
             return $this->successResponse(new InstituteResource($updated), __('validation.custom.institute.updated_success'));
@@ -75,8 +84,12 @@ class InstituteController extends Controller
         }
     }
 
-    public function destroy(Institute $institute): JsonResponse
+    public function destroy($id): JsonResponse
     {
+        $institute = Institute::find($id);
+        if (!$institute) {
+            return $this->errorResponse(__('validation.custom.institute.not_found'), 404);
+        }
         try {
             $this->service->delete($institute);
             return $this->successResponse(null, __('validation.custom.institute.deleted_success'));
@@ -87,8 +100,13 @@ class InstituteController extends Controller
     /**
  * تفعيل أو تعطيل المعهد
  */
-public function toggleStatus(Institute $institute): JsonResponse
+public function toggleStatus($id): JsonResponse
 {
+    $institute = Institute::find($id);
+    if (!$institute) {
+        return $this->errorResponse(__('validation.custom.institute.not_found'), 404);
+    }
+
     try {
         $updated = $this->service->toggleStatus($institute);
 

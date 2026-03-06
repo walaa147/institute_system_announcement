@@ -16,6 +16,7 @@ class StoreInstituteRequest extends ApiBaseRequest
             'code'    => 'required|string|unique:institutes,code',
             'description_ar' => 'nullable|string',
             'description_en' => 'nullable|string',
+            'status' => 'required|boolean',
             'address'     => 'nullable|string|max:255',
             'phone'       => 'nullable|string|max:20',
             'email'       => 'nullable|email|max:100|unique:institutes,email',

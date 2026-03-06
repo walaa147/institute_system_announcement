@@ -11,14 +11,16 @@ class InstituteResource extends JsonResource
 
     public function toArray($request): array
     {
-        $user = Auth::user();
+        $user = Auth('sanctum')->user();
         return [
             'id'          => $this->id,
+            'code'        => $this->code,
             'name_ar'     => $this->name_ar,
             'name_en'     => $this->name_en,
             'slug'        => $this->slug,
             'status'      => $this->status,
-            'description' => $this->description,
+            'description_ar' => $this->description_ar,
+            'description_en' => $this->description_en,
             // معلومات الاتصال
             'address'     => $this->address,
             'phone'       => $this->phone,
@@ -45,14 +47,17 @@ class InstituteResource extends JsonResource
             ],
             // التقييم والتميز (إذا كان لديك نظام تقييم)
             'priority_level'    => $this->priority_level,
+            'avg_response_time' => $this->avg_response_time,
             'status'            => (boolean) $this->status,
-            'commission_rate' => $this->mergeWhen(
-            ($user instanceof \App\Models\User) && $user->hasRole('super_admin'),
-            [ 'rate' => $this->commission_rate ]
+             $this->mergeWhen(($user instanceof \App\Models\User) && $user->hasRole('super_admin'),[
+
+            'commission_rate' => (float) $this->commission_rate,
+            'points_balance'  => (int) $this->points_balance ,
+            ]
         ),
          // إحصائيات سريعة
 
-            'created_at'  => $this->created_at->format('Y-m-d H:i:s'),
+            'created_at'  => $this->created_at?->format('Y-m-d H:i:s'),
         ];
     }
 }

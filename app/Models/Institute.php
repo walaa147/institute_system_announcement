@@ -106,5 +106,8 @@ public function favorites()
 {
     return $this->hasMany(Favorite::class);
 }
+protected $casts = [
+    'status' => 'boolean', // سيحول الـ 1 إلى true والـ 0 إلى false تلقائياً
+];
 
 }
