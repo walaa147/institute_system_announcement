@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
         'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
         'is_secretary' => \App\Http\Middleware\CheckIsSecretary::class,
         'is_admin'     => \App\Http\Middleware\CheckIsSuperAdmin::class,
+        'check_account_status' => \App\Http\Middleware\CheckAccountStatus::class,
     ]);
 })
     ->withExceptions(function (Exceptions $exceptions): void {

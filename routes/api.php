@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\SecretaryController;
 use App\Http\Controllers\Api\CourseController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\DiplomaController;
@@ -144,10 +145,18 @@ Route::prefix('v1')->group(function () {
             Route::delete('destroy/{institute}', 'destroy');
             Route::post('toggle-status/{institute}', 'toggleStatus');
         });
+        Route::prefix('secretaries')->controller(SecretaryController::class)->group(function () {
+            Route::get('show', 'index');
+            Route::post('store', 'store');
+            Route::get('show/{id}', 'show');
+            Route::post('update/{id}', 'update');
+            Route::delete('destroy/{id}', 'destroy');
+            Route::post('toggle-status/{id}', 'toggleStatus');
 
 
         });
     });
+        });
         });
 
 

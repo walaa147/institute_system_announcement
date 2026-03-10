@@ -46,13 +46,13 @@ class RolePermissionSeeder extends Seeder
         // 3. إدخال الصلاحيات في قاعدة البيانات (بامان دون تكرار)
         // نستخدم حارس 'web' وهو الافتراضي الذي يعمل بسلاسة مع Sanctum في Laravel
         foreach ($permissions as $permission) {
-            Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
+            Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'sanctum']);
         }
 
         // 4. إنشاء الأدوار (Roles) وربط كل دور بصلاحياته
 
         // أ- دور مدير النظام
-        $superAdminRole = Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+        $superAdminRole = Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'sanctum']);
         $superAdminRole->syncPermissions([
             'view-any-institute', 'create-institute', 'update-institute', 'delete-institute',
             'toggle-institute-status', 'update-institute-financials',
@@ -61,7 +61,7 @@ class RolePermissionSeeder extends Seeder
         ]);
 
         // ب- دور السكرتير
-        $secretaryRole = Role::firstOrCreate(['name' => 'secretary', 'guard_name' => 'web']);
+        $secretaryRole = Role::firstOrCreate(['name' => 'secretary', 'guard_name' => 'sanctum']);
         $secretaryRole->syncPermissions([
             'update-own-institute',
             'view-department', 'create-department', 'update-department', 'delete-department',
@@ -75,7 +75,7 @@ class RolePermissionSeeder extends Seeder
         ]);
 
         // ج- دور الطالب
-        $studentRole = Role::firstOrCreate(['name' => 'student', 'guard_name' => 'web']);
+        $studentRole = Role::firstOrCreate(['name' => 'student', 'guard_name' => 'sanctum']);
         $studentRole->syncPermissions([
             'update-own-profile', 'delete-own-account',
             'toggle-favorite', 'toggle-like',

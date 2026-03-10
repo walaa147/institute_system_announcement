@@ -18,6 +18,8 @@ return new class extends Migration
                   ->after('email')
                   ->constrained('institutes')
                   ->nullOnDelete();
+                  $table->softDeletes()->after('updated_at');
+        $table->boolean('is_active')->default(true)->after('password');
         });
     }
 
@@ -29,7 +31,8 @@ return new class extends Migration
         Schema::table('users', function (Blueprint $table) {
             // حذف العلاقة أولاً ثم حذف الحقل عند التراجع عن الهجرة
             $table->dropForeign(['institute_id']);
-            $table->dropColumn('institute_id');
+            $table->dropColumn('institute_id', 'is_active', 'deleted_at');
+
         });
     }
 };

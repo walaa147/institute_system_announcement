@@ -21,12 +21,15 @@ class InstituteController extends Controller
     public function __construct(protected InstituteService $service) {}
 
     public function index(Request $request): AnonymousResourceCollection
-    {
-        // استلام إحداثيات المستخدم (إذا توفرت) لحساب المسافة برمجياً
-        $userLat = $request->lat ?? $request->user_lat;
-$userLng = $request->lng ?? $request->user_lng;
-        $institutes = Institute::query()
-            ->active() // استخدام Scope المعاهد النشطة فقط
+    {  $userLat = $request->lat ?? $request->user_lat;
+    $userLng = $request->lng ?? $request->user_lng;
+        $user = auth('sanctum')->user();
+        $isSuperAdmin = ($user instanceof \App\Models\User) && $user->hasRole('super_admin');
+
+
+        $institutes = Institute::query()->when(!$isSuperAdmin, function ($query) {
+            return $query->active(); // إذا لم يكن المستخدم سوبر أدمن، نعرض فقط المعاهد النشطة
+        }) // استخدام Scope المعاهد النشطة فقط
             ->withDistance($userLat, $userLng) // حساب المسافة إذا أرسل المستخدم موقعه
             ->orderBySmartPriority() // الترتيب الحاكم (الأولوية الذكية)
             ->withCount(['departments', 'courses']) // جلب عدد الأقسام والكورسات لسرعة العرض

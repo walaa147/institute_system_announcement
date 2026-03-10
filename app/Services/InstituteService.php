@@ -34,7 +34,8 @@ class InstituteService
 
         $this->refreshPriority($institute);
 
-        return $institute;
+
+        return $institute->refresh(); // إعادة جلب المعهد بعد الحفظ للتأكد من تحديث الحقول المحسوبة مثل الأولوية
            // unset($data['logo']);
 // 3. توثيق الحدث في سجل التدقيق المركزي
             // AuditLog::create([
@@ -63,7 +64,7 @@ class InstituteService
             $this->refreshPriority($institute);
 
              // 3. توثيق الحدث في سجل التدقيق المركزي
-            return $institute;
+            return $institute->refresh(); // إعادة جلب المعهد بعد التحديث للتأكد من تحديث الحقول المحسوبة مثل الأولوية
         });
     }
 
@@ -88,7 +89,7 @@ class InstituteService
         // حساب وزن سرعة الرد: كلما قل الوقت زاد الوزن (بحد أقصى 20 نقطة تميز)
         $responseTimeWeight = 0;
         if ($institute->avg_response_time > 0) {
-            $responseTimeWeight = max(0, 20 - ($institute->avg_response_time / 5));
+            $responseTimeWeight = max(0, 50 - ($institute->avg_response_time / 5));
         }
 
         // تحديث الحقل الحاكم للعرض
@@ -105,7 +106,9 @@ public function toggleStatus(Institute $institute): Institute
     $institute->update([
         'status' => !$institute->status // إذا كان 1 يصبح 0 والعكس
     ]);
+    $this->refreshPriority($institute); // تحديث الأولوية بعد تغيير الحالة
 
-    return $institute;
+
+    return $institute->refresh();
 }
 }

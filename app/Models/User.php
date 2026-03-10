@@ -5,21 +5,21 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-
+use Illuminate\Database\Eloquent\SoftDeletes; // أضف هذا السطر للحذف الناعم
 use Laravel\Sanctum\HasApiTokens; // موجودة مسبقاً
 use Spatie\Permission\Traits\HasRoles; // أضف هذا السطر للصلاحيات
 
 class User extends Authenticatable
 {
     // أضف HasApiTokens و HasRoles هنا داخل سطر الـ use
-    use HasApiTokens, HasFactory, Notifiable, HasRoles;
+    use HasApiTokens, HasFactory, Notifiable, HasRoles, SoftDeletes;
     protected $guard_name = 'sanctum'; // تحديد الحارس الافتراضي للصلاحيات
 
     protected $fillable = [
         'name',
         'email',
         'password',
-
+        'is_active',
         'institute_id'
     ];
 
