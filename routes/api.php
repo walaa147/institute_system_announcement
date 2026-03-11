@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\DiplomaController;
 use App\Http\Controllers\Api\LikeController;
 use App\Http\Controllers\Api\InstituteController;
+use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\BookingController;
 use Termwind\Components\Raw;
 
@@ -137,6 +138,11 @@ Route::prefix('v1')->group(function () {
     });
     Route::middleware('auth:sanctum')->group(function () {
 
+Route::prefix('profile')->controller(ProfileController::class   )->group(function () {
+  Route::get('/show', 'show');
+Route::post('/update', 'update');
+Route::post('/update-fcm-token', 'updateFcmToken');
+    });
     // --- مسارات مدير النظام فقط (Super Admin) ---
     Route::middleware(['is_admin'])->group(function () { // سننشئ هذا الميدلوير أو نستخدم الفحص المباشر
         Route::prefix('institutes')->controller(InstituteController::class)->group(function () {
