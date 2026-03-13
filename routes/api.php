@@ -121,13 +121,13 @@ Route::prefix('v1')->group(function () {
         Route::post('login', 'login');});
 
        Route::prefix('view')->group(function () {
-          //  Route::get('/courses/{course}', [CourseController::class, 'show']);
-            //::get('/diplomas', [DiplomaController::class, 'index']);
-          //  Route::get('/diplomas/{diploma}', [DiplomaController::class, 'show']);
+//  institute
             Route::get('/institutes', [InstituteController::class, 'index']);
             Route::get('/institutes/{institute}', [InstituteController::class, 'show']);
-           // Route::get('/departments', [DepartmentController::class, 'index']);
-//Route::get('/departments/{department}', [DepartmentController::class, 'show']);
+// department
+            Route::get('/departments', [DepartmentController::class, 'index']);
+            Route::get('/departments/{department}', [DepartmentController::class, 'show']);
+
         });
         // المسارات المحمية (لا يمكن الدخول لها إلا بتوكن صالح)
         Route::middleware('auth:sanctum')->group(function () {
@@ -136,7 +136,7 @@ Route::prefix('v1')->group(function () {
    Route::get('/user', function (Request $request) {
          return $request->user();
     });
-    Route::middleware('auth:sanctum')->group(function () {
+
 
 Route::prefix('profile')->controller(ProfileController::class   )->group(function () {
   Route::get('/show', 'show');
@@ -159,9 +159,16 @@ Route::post('/update-fcm-token', 'updateFcmToken');
             Route::delete('destroy/{id}', 'destroy');
             Route::post('toggle-status/{id}', 'toggleStatus');
 
-
-        });
+ });
     });
+      Route::middleware(['is_secretary'])->group(function () { // سكرتير أو أدمن
+        Route::prefix('departments')->controller(DepartmentController::class)->group(function () {
+            Route::post('store', 'store');
+            Route::post('update/{department}', 'update');
+            Route::delete('destroy/{department}', 'destroy');
+             Route::post('toggle-status/{department}', 'toggleStatus');
+        });
+
         });
         });
 

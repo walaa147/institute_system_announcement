@@ -35,9 +35,7 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
-    public function employeeProfile() {
-    return $this->hasOne(Employee::class);
-}
+
 public function likes(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         // الربط المباشر بجدول Favorites عبر user_id
@@ -72,6 +70,11 @@ public function likes(): \Illuminate\Database\Eloquent\Relations\HasMany
     public function favorites()
 {
     return $this->hasMany(Favorite::class);
+}
+public function isStatusAdmin(): bool
+{
+    // نتحقق مما إذا كان المستخدم لديه رتبة أدمن أو سكرتير باستخدام Spatie
+    return $this->hasAnyRole(['admin', 'secretary']);
 }
 
 }

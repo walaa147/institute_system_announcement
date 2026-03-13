@@ -3,93 +3,113 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Api\DepartmentResource;
 use App\Models\Department;
+use App\Services\DepartmentService;
 use App\Http\Requests\StoreDepartmentRequest;
-use App\Http\Requests\UpdateDepartmentRequest; // أضف هذا السطر
-use App\Http\Resources\DepartmentResource;
+use App\Http\Requests\UpdateDepartmentRequest;
+use App\Traits\ApiResponse;
+
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class DepartmentController extends Controller
 {
-    /**
-     * عرض جميع الأقسام مع بيانات المعهد المرتبط
-     */
-    public function index(): JsonResponse
+    use ApiResponse;
+
+    public function __construct(protected DepartmentService $service) {}
+
+    public function index(Request $request): JsonResponse
     {
-        $departments = Department::with('institute')->get();
-        return response()->json([
-            'status' => 'success',
-            'data'   => DepartmentResource::collection($departments)
-        ]);
+        $user = auth('sanctum')->user();
+        $isStaff = ($user instanceof \App\Models\User) && $user->isStatusAdmin();
+
+        $departments = Department::query()
+            ->when(!$isStaff, function ($query) {
+                return $query->where('is_active', true); // الطالب يرى المفعل فقط
+            })
+            ->withCount(['courses', 'diplomas'])
+            ->latest()
+            ->paginate(15);
+
+        return $this->successResponse(
+            DepartmentResource::collection($departments)->response()->getData(true),
+            __('validation.custom.department.fetched_success')
+        );
     }
 
-    /**
-     * إنشاء قسم جديد
-     */
     public function store(StoreDepartmentRequest $request): JsonResponse
     {
-        // التحقق من القيد الفريد (Unique) قبل الإنشاء
-        if (Department::where('name_ar', $request->name_ar)
-            ->where('institute_id', $request->institute_id)
-            ->exists()) {
-            return response()->json(['message' => 'القسم موجود مسبقاً في هذا المعهد'], 422);
+        try {
+            $department = $this->service->store($request->validated());
+            return $this->successResponse(
+                new DepartmentResource($department),
+                __('validation.custom.department.created_success'),
+                201
+            );
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 400);
+        }
+    }
+
+    public function show($id): JsonResponse
+    {
+        $department = Department::withCount(['courses', 'diplomas', 'advertisements'])->find($id);
+
+        if (!$department) {
+            return $this->errorResponse(__('validation.custom.department.not_found'), 404);
         }
 
-        $department = Department::create($request->validated());
+        $user = auth('sanctum')->user();
+        $isStaff = ($user instanceof \App\Models\User) && $user->isStatusAdmin();
 
-        return response()->json([
-            'message' => 'تم إنشاء القسم بنجاح',
-            'data'    => new DepartmentResource($department)
-        ], 201);
-    }
-
-    /**
-     * عرض تفاصيل قسم معين
-     */
-    public function show(Department $department): JsonResponse
-    {
-        return response()->json([
-            'status' => 'success',
-            'data'   => new DepartmentResource($department->load('institute'))
-        ]);
-    }
-
-    /**
-     * تحديث بيانات قسم موجود
-     */
-    public function update(UpdateDepartmentRequest $request, Department $department): JsonResponse
-    {
-        // التحقق من القيد الفريد مع استثناء القسم الحالي (Unique except current ID)
-        if ($request->has('name_ar') || $request->has('institute_id')) {
-            $name = $request->name_ar ?? $department->name_ar;
-            $instId = $request->institute_id ?? $department->institute_id;
-
-            $exists = Department::where('name_ar', $name)
-                ->where('institute_id', $instId)
-                ->where('id', '!=', $department->id)
-                ->exists();
-
-            if ($exists) {
-                return response()->json(['message' => 'الاسم الجديد موجود مسبقاً في هذا المعهد.'], 422);
-            }
+        if (!$department->is_active && !$isStaff) {
+            return $this->errorResponse(__('validation.custom.department.disabled'), 403);
         }
 
-        $department->update($request->validated());
-
-        return response()->json([
-            'message' => 'تم تحديث القسم بنجاح',
-            'data'    => new DepartmentResource($department->load('institute'))
-        ]);
+        return $this->successResponse(new DepartmentResource($department));
     }
 
-    /**
-     * حذف قسم
-     */
-    public function destroy(Department $department): JsonResponse
+    public function update(UpdateDepartmentRequest $request, $id): JsonResponse
     {
-        $department->delete();
-        return response()->json([
-            'message' => 'تم حذف القسم بنجاح'
-        ]);
+        $department = Department::find($id);
+        if (!$department) return $this->errorResponse(__('validation.custom.department.not_found'), 404);
+
+        try {
+            $updated = $this->service->update($department, $request->validated());
+            return $this->successResponse(new DepartmentResource($updated), __('validation.custom.department.updated_success'));
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    public function toggleStatus($id): JsonResponse
+    {
+        $department = Department::find($id);
+        if (!$department) return $this->errorResponse(__('validation.custom.department.not_found'), 404);
+
+        try {
+            $updated = $this->service->toggleStatus($department);
+            $message = $updated->is_active
+                ? __('validation.custom.department.enabled_success')
+                : __('validation.custom.department.disabled_success');
+
+            return $this->successResponse(new DepartmentResource($updated), $message);
+        } catch (\Exception $e) {
+            return $this->errorResponse(__('validation.custom.department.status_update_failed'), 500);
+        }
+    }
+
+    public function destroy($id): JsonResponse
+    {
+        $department = Department::find($id);
+        if (!$department) return $this->errorResponse(__('validation.custom.department.not_found'), 404);
+
+        try {
+            $this->service->delete($department);
+            return $this->successResponse(null, __('validation.custom.department.deleted_success'));
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
     }
 }
