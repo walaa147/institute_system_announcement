@@ -11,6 +11,8 @@ use App\Http\Controllers\Api\LikeController;
 use App\Http\Controllers\Api\InstituteController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\FavoriteInstituteController;
+
 use Termwind\Components\Raw;
 
 /*
@@ -170,12 +172,24 @@ Route::post('/update-fcm-token', 'updateFcmToken');
         });
 
         });
+
+
+        //  مسارات الطلاب فقط Student
+        Route::middleware(['is_student'])->group(function () {
+
+            // إدارة المفضلة (المعاهد)
+            Route::prefix('student/favorites/institutes')->controller(FavoriteInstituteController::class)->group(function () {
+                Route::get('show', 'index');               // عرض المعاهد المفضلة للطالب
+                Route::post('toggle/{institute}', 'toggle'); // إضافة/إزالة معهد من المفضلة
+            });
+        });
+
         });
 
 
-        Route::any('{any}', function () {
+    /*    Route::any('{any}', function () {
    return response()->json([
         'status' => 'false',
         'message' => 'الصفحة التي طلبتها غير موجودة.'], 404);
-})->where('any', '.*');
+})->where('any', '.*');*/
     });
