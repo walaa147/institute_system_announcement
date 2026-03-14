@@ -187,9 +187,9 @@ Route::post('/update-fcm-token', 'updateFcmToken');
         });
 
 
-    /*    Route::any('{any}', function () {
+       Route::any('{any}', function () {
    return response()->json([
         'status' => 'false',
         'message' => 'الصفحة التي طلبتها غير موجودة.'], 404);
-})->where('any', '.*');*/
+})->where('any', '.*');
     });

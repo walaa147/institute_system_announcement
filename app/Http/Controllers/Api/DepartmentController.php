@@ -23,12 +23,8 @@ class DepartmentController extends Controller
     {
         $user = auth('sanctum')->user();
         $isStaff = ($user instanceof \App\Models\User) && $user->isStatusAdmin();
-
-        $departments = Department::query()
-            ->when(!$isStaff, function ($query) {
-                return $query->where('is_active', true); // الطالب يرى المفعل فقط
-            })
-            ->withCount(['courses', 'diplomas'])
+$query = $isStaff ? Department::withoutGlobalScope('active') : Department::query();
+        $departments = $query->withCount(['courses', 'diplomas'])
             ->latest()
             ->paginate(15);
 
@@ -91,8 +87,8 @@ class DepartmentController extends Controller
         try {
             $updated = $this->service->toggleStatus($department);
             $message = $updated->is_active
-                ? __('validation.custom.department.enabled_success')
-                : __('validation.custom.department.disabled_success');
+                ? __('validation.custom.department.enabled_department')
+                : __('validation.custom.department.disabled_department');
 
             return $this->successResponse(new DepartmentResource($updated), $message);
         } catch (\Exception $e) {
