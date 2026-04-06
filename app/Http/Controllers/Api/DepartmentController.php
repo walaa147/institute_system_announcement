@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\DepartmentResource;
 use App\Models\Department;
 use App\Services\DepartmentService;
-use App\Http\Requests\StoreDepartmentRequest;
-use App\Http\Requests\UpdateDepartmentRequest;
+use App\Http\Requests\Api\Secretary\StoreDepartmentRequest;
+use App\Http\Requests\Api\Secretary\UpdateDepartmentRequest;
 use App\Traits\ApiResponse;
+use Illuminate\Support\Facades\Gate;
+
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -36,6 +38,7 @@ $query = $isStaff ? Department::withoutGlobalScope('active') : Department::query
 
     public function store(StoreDepartmentRequest $request): JsonResponse
     {
+       Gate::authorize('create', Department::class);
         try {
             $department = $this->service->store($request->validated());
             return $this->successResponse(
@@ -50,7 +53,7 @@ $query = $isStaff ? Department::withoutGlobalScope('active') : Department::query
 
     public function show($id): JsonResponse
     {
-        $department = Department::withCount(['courses', 'diplomas', 'advertisements'])->find($id);
+        $department = Department::withoutGlobalScope('active')->withCount(['courses', 'diplomas', 'advertisements'])->find($id);
 
         if (!$department) {
             return $this->errorResponse(__('validation.custom.department.not_found'), 404);
@@ -62,14 +65,18 @@ $query = $isStaff ? Department::withoutGlobalScope('active') : Department::query
         if (!$department->is_active && !$isStaff) {
             return $this->errorResponse(__('validation.custom.department.disabled'), 403);
         }
+        Gate::authorize('view', $department);
 
         return $this->successResponse(new DepartmentResource($department));
     }
 
     public function update(UpdateDepartmentRequest $request, $id): JsonResponse
     {
-        $department = Department::find($id);
+        $department = Department::withoutGlobalScope('active')->find($id);
         if (!$department) return $this->errorResponse(__('validation.custom.department.not_found'), 404);
+
+        Gate::authorize('update', $department);
+
 
         try {
             $updated = $this->service->update($department, $request->validated());
@@ -81,9 +88,10 @@ $query = $isStaff ? Department::withoutGlobalScope('active') : Department::query
 
     public function toggleStatus($id): JsonResponse
     {
-        $department = Department::find($id);
-        if (!$department) return $this->errorResponse(__('validation.custom.department.not_found'), 404);
 
+        $department = Department::withoutGlobalScope('active')->find($id);
+        if (!$department) return $this->errorResponse(__('validation.custom.department.not_found'), 404);
+            Gate::authorize('update', $department);
         try {
             $updated = $this->service->toggleStatus($department);
             $message = $updated->is_active
@@ -98,8 +106,12 @@ $query = $isStaff ? Department::withoutGlobalScope('active') : Department::query
 
     public function destroy($id): JsonResponse
     {
-        $department = Department::find($id);
+
+        $department = Department::withoutGlobalScope('active')->find($id);
         if (!$department) return $this->errorResponse(__('validation.custom.department.not_found'), 404);
+
+        Gate::authorize('delete', $department);
+
 
         try {
             $this->service->delete($department);

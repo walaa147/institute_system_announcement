@@ -74,7 +74,7 @@ public function likes(): \Illuminate\Database\Eloquent\Relations\HasMany
 public function isStatusAdmin(): bool
 {
     // نتحقق مما إذا كان المستخدم لديه رتبة أدمن أو سكرتير باستخدام Spatie
-    return $this->hasAnyRole(['admin', 'secretary']);
+    return $this->hasAnyRole(['super_admin', 'secretary']);
 }
 
 }

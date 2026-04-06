@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Institute;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Http\UploadedFile;
 
 
 use Illuminate\Support\Facades\Storage;
@@ -50,15 +51,18 @@ class InstituteService
     public function update(Institute $institute, array $data): Institute
     {
         return DB::transaction(function () use ($institute, $data) {
-         if (isset($data['logo'])) {
+         if (isset($data['logo'])&& $data['logo'] instanceof UploadedFile) {
                 $data['logo'] = $this->imageService->updateImage(
                     $data['logo'], $institute->logo, 'institutes/logos');
             }
-            if (isset($data['cover_photo'])) {
+            if (isset($data['cover_photo'])&& $data['cover_photo'] instanceof UploadedFile) {
                 $data['cover_photo'] = $this->imageService->updateImage($data['cover_photo'], $institute->cover_photo, 'institutes/covers');
             }
-             $data['slug'] =Str::slug($data['name_en'] ?? $data['name_ar']). '-' . Str::random(6); // تحديث السلاگ إذا تم تغيير
-          //  unset($data['logo']);
+            if(isset($data['name_ar']) || isset($data['name_en'])) {
+                $nameForSlug = $data['name_en'] ?? $data['name_ar'] ?? $institute->name_ar;
+                $data['slug'] = Str::slug($nameForSlug) . '-' . Str::random(6); // تحديث السلاگ إذا تم تغيير الاسم
+            }
+
 
             $institute->update($data);
             $this->refreshPriority($institute);

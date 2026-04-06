@@ -12,7 +12,7 @@ class StoreDepartmentRequest extends FormRequest
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
-        return Auth::check() && $user->isStatusAdmin();
+        return Auth::check() && ($user->isStatusAdmin() || $user->hasRole('super_admin'));
     }
 
     public function rules(): array
@@ -23,7 +23,7 @@ class StoreDepartmentRequest extends FormRequest
                 Rule::unique('departments')->where(fn($q) => $q->where('institute_id', $this->institute_id))
             ],
             'name_en'        => 'nullable|string|max:100',
-            'institute_id'   => 'required|exists:institutes,id',
+            'institute_id'   => 'sometimes|exists:institutes,id',
             'description_ar' => 'required|string|min:10', // جعلناه مطلوباً لأهمية المحتوى
             'description_en' => 'nullable|string|min:10',
             'is_active'      => 'sometimes|boolean',
