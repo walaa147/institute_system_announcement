@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\SecretaryController;
 use App\Http\Controllers\Api\CourseController;
 use App\Http\Controllers\Api\DepartmentController;
+use App\Http\Controllers\Api\AdvertisementController;
 use App\Http\Controllers\Api\DiplomaController;
 use App\Http\Controllers\Api\LikeController;
 use App\Http\Controllers\Api\InstituteController;
@@ -129,7 +130,9 @@ Route::prefix('v1')->group(function () {
 // department
             Route::get('/departments', [DepartmentController::class, 'index']);
             Route::get('/departments/{department}', [DepartmentController::class, 'show']);
-
+//Advertisement
+            Route::get('/advertisements', [AdvertisementController::class, 'index']);
+            Route::get('/advertisements/{advertisement}', [AdvertisementController::class, 'show']);
         });
         // المسارات المحمية (لا يمكن الدخول لها إلا بتوكن صالح)
         Route::middleware('auth:sanctum')->group(function () {
@@ -170,7 +173,11 @@ Route::post('/update-fcm-token', 'updateFcmToken');
             Route::delete('destroy/{department}', 'destroy');
              Route::post('toggle-status/{department}', 'toggleStatus');
         });
-
+        Route::prefix('advertisements')->controller(AdvertisementController::class)->group(function () {
+            Route::post('store', 'store');
+            Route::post('update/{advertisement}', 'update');
+            Route::delete('destroy/{advertisement}', 'destroy');
+        });
         });
 
 
