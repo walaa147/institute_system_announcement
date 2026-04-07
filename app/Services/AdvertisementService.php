@@ -6,39 +6,63 @@ use App\Models\Advertisement;
 use App\Models\Department;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\UploadedFile;
+use App\Services\ImageService;
+
 use Illuminate\Support\Facades\Storage;
 
 class AdvertisementService
 {
-    public function store(array $data): Advertisement
+    protected ImageService $imageService;
+    public function __construct(ImageService $imageService)
     {
-        $user = request()->user();
-
-        // 1. الأمان: التحقق من أن القسم المختار يتبع لمعهد المستخدم
-        $this->verifyDepartmentBelongsToInstitute($data['department_id'], $user);
-
-        // 2. تعيين المعهد والمسؤول عن الإنشاء تلقائياً
-        if (!$user->hasRole('super_admin')) {
-            $data['institute_id'] = $user->institute_id;
-        } elseif (!isset($data['institute_id'])) {
-            throw new \Exception("يجب على السوبر أدمن تحديد رقم المعهد.");
-        }
-
-        $data['created_by'] = $user->id;
-
-        // 3. توليد Slug فريد
-        $data['slug'] = Str::slug($data['title_ar']) . '-' . Str::random(6);
-
-        // 4. معالجة رفع الصورة (إذا وجدت)
-        if (request()->hasFile('image_path')) {
-            $data['image_path'] = request()->file('image_path')->store('advertisements', 'public');
-        }
-
-        return DB::transaction(function () use ($data) {
-            return Advertisement::create($data);
-        });
+        $this->imageService = $imageService;
     }
 
+    public function store(array $data): Advertisement
+{
+    $user = request()->user();
+    $this->verifyDepartmentBelongsToInstitute($data['department_id'], $user);
+
+    // السحب التلقائي الذكي
+    if (!empty($data['advertisable_id']) && !empty($data['advertisable_type'])) {
+        $related = $data['advertisable_type']::find($data['advertisable_id']);
+
+        if ($related) {
+            // سحب البيانات الأساسية إذا كانت فارغة
+            $data['title_ar'] = $data['title_ar'] ?? $related->name_ar;
+            $data['title_en'] = $data['title_en'] ?? $related->name_en;
+            $data['description_ar'] = $data['description_ar'] ?? $related->description;
+            $data['description_en'] = $data['description_en'] ?? $related->description;
+            $data['duration'] = $data['duration'] ?? $related->duration;
+
+            // التعامل مع السعر حسب نوع المورد (كورس أو دبلوم)
+            $price = ($data['advertisable_type'] === 'App\Models\Course') ? $related->price : $related->total_cost;
+            $data['price_before_discount'] = $data['price_before_discount'] ?? $price;
+
+            // سحب الصورة إذا لم يتم رفع صورة جديدة
+            if (!request()->hasFile('image_path') && $related->photo_path) {
+                $data['image_path'] = $related->photo_path;
+            }
+        }
+    }
+    if(request()->hasFile('image_path')) {
+        $data['image_path'] = $this->imageService->updateImage(null, request()->file('image_path'), 'advertisements');
+    }
+
+    // تعيين القيم التلقائية
+    $data['slug'] = Str::slug($data['title_ar'] ?? 'ad') . '-' . Str::random(6);
+    $data['created_by'] = $user->id;
+    $data['institute_id'] = $user->hasRole('super_admin') ? $data['institute_id'] : $user->institute_id;
+    $data['published_at'] = $data['published_at'] ?? now();
+
+    if (request()->hasFile('image_path')) {
+        $data['image_path'] = request()->file('image_path')->store('advertisements', 'public');
+    }
+
+    return DB::transaction(fn() => Advertisement::create($data));
+}
     public function update(Advertisement $advertisement, array $data): Advertisement
     {
         $user = request()->user();
@@ -95,7 +119,7 @@ class AdvertisementService
             ->exists();
 
         if (!$exists) {
-            throw new \Exception("عذراً، هذا القسم لا يتبع لمعهدك. لا يمكنك إضافة إعلان فيه.");
+            throw new \Exception(__('validation.custom.department.invalid_department'));
         }
     }
 }

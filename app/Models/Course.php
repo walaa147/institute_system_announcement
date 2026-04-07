@@ -94,5 +94,31 @@ public function waitingLists()
 {
     return $this->morphMany(WaitingList::class, 'bookable');
 }
+
+public function advertisements()
+{
+    return $this->morphMany(Advertisement::class, 'advertisable');
+}
+
+
+protected static function booted()// هذا هو المكان المناسب لوضع اللوجيك الذي يتعامل مع تحديث الإعلانات المرتبطة بالكورس
+{
+    static::updated(function ($course) {
+        // نتحقق من الحقول التي تغيرت في الكورس
+        $relevantFields = ['name_ar', 'description', 'price', 'photo_path', 'duration'];
+
+        if ($course->wasChanged($relevantFields)) {
+            // استخدام العلاقة مباشرة بدلاً من الاستعلام اليدوي
+            $course->advertisements()->update([
+                'title_ar'              => $course->name_ar,
+                'description_ar'        => $course->description,
+                'price_before_discount' => $course->price,
+                'image_path'            => $course->photo_path,
+                'duration'              => $course->duration,
+            ]);
+        }
+    });
+}
+
 }
 

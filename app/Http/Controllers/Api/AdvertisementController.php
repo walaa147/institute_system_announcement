@@ -7,7 +7,9 @@ use App\Models\Advertisement;
 use App\Services\AdvertisementService;
 use App\Http\Requests\Api\Secretary\StoreAdvertisementRequest;
 use App\Http\Requests\Api\Secretary\UpdateAdvertisementRequest;
+use App\Http\Resources\Api\AdvertisementResource as ApiAdvertisementResource;
 use App\Traits\ApiResponse;
+use Illuminate\Http\Resources\Api\AdvertisementResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
 
@@ -23,7 +25,7 @@ class AdvertisementController extends Controller
     public function index(): JsonResponse
     {
         $ads = Advertisement::with(['advertisable'])->latest()->paginate(15);
-        return $this->successResponse($ads,__('validation.custom.advertisement.fetched_success'));
+        return $this->successResponse(ApiAdvertisementResource::collection($ads),__('validation.custom.advertisement.fetched_success'));
     }
 
     /**
@@ -35,7 +37,7 @@ class AdvertisementController extends Controller
 
         try {
             $ad = $this->service->store($request->validated());
-            return $this->successResponse($ad, __('validation.custom.advertisement.created_success'), 201);
+            return $this->successResponse(new ApiAdvertisementResource($ad), __('validation.custom.advertisement.created_success'), 201);
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
         }
@@ -51,7 +53,7 @@ class AdvertisementController extends Controller
 
         Gate::authorize('view', $ad);
 
-        return $this->successResponse($ad);
+        return $this->successResponse(new ApiAdvertisementResource($ad), __('validation.custom.advertisement.fetched_success'));
     }
 
     /**
@@ -66,7 +68,7 @@ class AdvertisementController extends Controller
 
         try {
             $updated = $this->service->update($ad, $request->validated());
-            return $this->successResponse($updated, __('validation.custom.advertisement.updated_success'));
+            return $this->successResponse(new ApiAdvertisementResource($updated), __('validation.custom.advertisement.updated_success'));
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }

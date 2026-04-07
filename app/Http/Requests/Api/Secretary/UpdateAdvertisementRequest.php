@@ -8,32 +8,74 @@ use Illuminate\Validation\Rule;
 
 class UpdateAdvertisementRequest extends FormRequest
 {
+    /**
+     * تحديد ما إذا كان المستخدم مخولاً لإجراء هذا الطلب.
+     */
     public function authorize(): bool
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
+
+        // التحقق من أن المستخدم مسجل دخول ولديه رتبة إدارية (سوبر أدمن، أدمن، أو سكرتير)
         return Auth::check() && ($user->isStatusAdmin() || $user->isStatusSuperAdmin());
     }
 
+    /**
+     * الحصول على قواعد التحقق التي تنطبق على الطلب.
+     */
     public function rules(): array
     {
         return [
-            'title_ar' => 'sometimes|string|max:150',
-            'title_en' => 'nullable|string|max:150',
-            'department_id' => 'sometimes|exists:departments,id',
+            // المعلومات الأساسية (استخدام sometimes يعني الحقل مطلوب فقط إذا تم إرساله)
+            'title_ar'            => 'sometimes|nullable|string|max:150',
+            'title_en'            => 'nullable|string|max:150',
+            'description_ar'      => 'sometimes|nullable|string',
+            'description_en'      => 'nullable|string',
+            'department_id'       => 'sometimes|exists:departments,id',
 
-            'advertisable_id' => 'nullable|integer',
-            'advertisable_type' => [
+            // الربط المتعدد (Morph) - لتغيير الكورس أو الدبلوم المرتبط
+            'advertisable_id'     => 'nullable|integer',
+            'advertisable_type'   => [
                 'nullable',
                 'string',
                 Rule::in(['App\Models\Course', 'App\Models\Diploma'])
             ],
 
-            'image_path' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
-            'price_after_discount' => 'nullable|numeric|min:0',
-            'is_active' => 'sometimes|boolean',
-            'is_open_for_booking' => 'sometimes|boolean',
-            // أضف أي حقول أخرى ترى أنها قابلة للتعديل
+            // إدارة المقاعد (مهم جداً)
+            'max_seats'           => 'nullable|integer|min:1',
+            'current_seats_taken' => 'nullable|integer|min:0|lte:max_seats', // يجب ألا يتجاوز المقاعد المتاحة
+
+            // حقول المدرب والصورة
+            'trainer_name'        => 'nullable|string|max:100',
+            'image_path'          => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+
+            // الأسعار والخصومات
+            'price_before_discount' => 'nullable|numeric|min:0',
+            'price_after_discount'  => 'nullable|numeric|min:0',
+            'discount_percentage'   => 'nullable|numeric|between:0,100',
+            'discount_expiry'       => 'nullable|date',
+            'early_paid_price'      => 'nullable|numeric|min:0',
+            'is_free'               => 'sometimes|boolean',
+
+            // التواريخ والوقت
+            'event_date'            => 'nullable|date',
+            'start_date'            => 'nullable|date',
+            'end_date'              => 'nullable|date|after_or_equal:start_date',
+            'expired_at'            => 'nullable|date',
+            'published_at'          => 'nullable|date',
+            'duration'              => 'nullable|string|max:50',
+
+            // الحالات والروابط
+            'is_active'             => 'sometimes|boolean',
+            'is_open_for_booking'   => 'sometimes|boolean',
+            'has_certificate'       => 'sometimes|boolean',
+            'location'              => 'nullable|string|max:255',
+            'link'                  => 'nullable|url',
         ];
     }
+
+    /**
+     * تخصيص رسائل الخطأ (اختياري)
+     */
+
 }

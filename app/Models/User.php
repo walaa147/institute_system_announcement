@@ -76,5 +76,9 @@ public function isStatusAdmin(): bool
     // نتحقق مما إذا كان المستخدم لديه رتبة أدمن أو سكرتير باستخدام Spatie
     return $this->hasAnyRole(['super_admin', 'secretary']);
 }
+public function isStatusSuperAdmin(): bool
+{
+    return $this->hasRole('super_admin');
+}
 
 }
