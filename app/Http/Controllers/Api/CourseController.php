@@ -5,109 +5,142 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Course;
 use App\Services\CourseService;
-use App\Http\Requests\StoreCourseRequest;
-use App\Http\Requests\UpdateCourseRequest;
-use App\Http\Resources\CourseResource;
+use App\Http\Requests\Api\Secretary\StoreCourseRequest;
+use App\Http\Requests\Api\Secretary\UpdateCourseRequest;
+use App\Http\Resources\Api\CourseResource;
+use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Gate;
 
 class CourseController extends Controller
 {
-    /**
-     * حقن خدمة الكورسات في المتحكم
-     */
-    public function __construct(private readonly CourseService $service) {}
+    use ApiResponse;
+
+    public function __construct(protected CourseService $service) {}
 
     /**
-     * عرض قائمة الكورسات النشطة
-     * * @return AnonymousResourceCollection
+     * عرض قائمة الكورسات النشطة مع علاقاتها
      */
-    public function index(): AnonymousResourceCollection
-{
-    $courses = Course::with(['department.institute', 'creator.user', 'likes']) // <=== إضافة favorites هنا
-        ->withCount('likes')
-        ->where('is_active', true)
-        ->latest()
-        ->get();
+    public function index(): JsonResponse
+    {
+        // دمجنا التحميل المسبق من الكود القديم، مع الـ Pagination من الكود الجديد
+        $courses = Course::with(['department.institute', 'creator', 'likes'])
+            ->withCount('likes')
+            ->where('is_active', true) // جلب الكورسات النشطة فقط
+            ->latest()
+            ->paginate(15);
 
-    return CourseResource::collection($courses);
-}
+        return $this->successResponse(
+            CourseResource::collection($courses),
+            __('validation.custom.course.fetched_success')
+        );
+    }
 
     /**
      * تخزين كورس جديد
-     * * @param StoreCourseRequest $request
-     * @return CourseResource|JsonResponse
      */
-    public function store(StoreCourseRequest $request): CourseResource|JsonResponse
+    public function store(StoreCourseRequest $request): JsonResponse
     {
+       // Gate::authorize('create', Course::class);
+
         try {
             $course = $this->service->store($request->validated());
-            return new CourseResource($course);
+
+            // تحميل العلاقات للكورس الجديد لكي لا يفشل الـ Resource في قراءتها
+            $course->load(['department.institute', 'creator']);
+
+            return $this->successResponse(
+                new CourseResource($course),
+                __('validation.custom.course.created_success'),
+                201
+            );
         } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'فشلت عملية الإضافة: ' . $e->getMessage(),
-                'status' => 'error'
-            ], 403);
+            return $this->errorResponse($e->getMessage(), 400);
         }
     }
 
     /**
-     * عرض تفاصيل كورس معين مع علاقاته
-     * * @param Course $course
-     * @return CourseResource
+     * عرض تفاصيل كورس محدد
      */
-    // في app/Http/Controllers/Api/CourseController.php
+    public function show($id): JsonResponse
+    {
+        // جلب الكورس مع علاقاته وإحصائياته
+        $course = Course::with(['department.institute', 'creator', 'likes'])
+            ->withCount('likes')
+            ->find($id);
 
-public function show(Course $course): CourseResource
-{
-    $course->load([
-        'department.institute',
-        'creator.user',
-        'likes'
-    ]);
-    $course->loadCount('likes');
+        if (!$course) return $this->errorResponse(__('validation.custom.course.not_found'), 404);
 
-    return new CourseResource($course);
-}
+       // Gate::authorize('view', $course);
 
+        return $this->successResponse(new CourseResource($course));
+    }
 
     /**
-     * تحديث بيانات كورس موجود
-     * * @param UpdateCourseRequest $request
-     * @param Course $course
-     * @return CourseResource|JsonResponse
+     * تحديث كورس
      */
-    public function update(UpdateCourseRequest $request, Course $course): CourseResource|JsonResponse
+    public function update(UpdateCourseRequest $request, $id): JsonResponse
     {
+        $course = Course::find($id);
+
+        if (!$course) return $this->errorResponse(__('validation.custom.course.not_found'), 404);
+
+        //Gate::authorize('update', $course);
+
         try {
             $updatedCourse = $this->service->update($course, $request->validated());
-            return new CourseResource($updatedCourse);
+
+            // تحميل العلاقات لضمان عرضها بشكل صحيح في الـ Resource بعد التحديث
+            $updatedCourse->load(['department.institute', 'creator']);
+
+            return $this->successResponse(
+                new CourseResource($updatedCourse),
+                __('validation.custom.course.updated_success')
+            );
         } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'فشلت عملية التحديث: ' . $e->getMessage(),
-                'status' => 'error'
-            ], 403);
+            return $this->errorResponse($e->getMessage(), 500);
         }
     }
 
     /**
-     * حذف كورس نهائياً مع صورته
-     * * @param Course $course
-     * @return JsonResponse
+     * حذف كورس نهائياً (أو Soft Delete حسب إعدادات المايجريشن)
      */
-    public function destroy(Course $course): JsonResponse
+    public function destroy($id): JsonResponse
     {
+        $course = Course::find($id);
+
+        if (!$course) return $this->errorResponse(__('validation.custom.course.not_found'), 404);
+
+        //Gate::authorize('delete', $course);
+
         try {
             $this->service->delete($course);
-            return response()->json([
-                'message' => 'تم حذف الدورة بنجاح مع الملفات المرتبطة بها',
-                'status' => 'success'
-            ], 200);
+            return $this->successResponse(null, __('validation.custom.course.deleted_success'));
         } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'فشلت عملية الحذف',
-                'error' => $e->getMessage()
-            ], 500);
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * تفعيل / إيقاف الكورس
+     */
+    public function toggleStatus($id): JsonResponse
+    {
+        $course = Course::find($id);
+
+        if (!$course) return $this->errorResponse(__('validation.custom.course.not_found'), 404);
+
+       // Gate::authorize('update', $course);
+
+        try {
+            $updated = $this->service->toggleStatus($course);
+            $message = $updated->is_active
+                ? __('validation.custom.course.enabled_course')
+                : __('validation.custom.course.disabled_course');
+
+            return $this->successResponse(new CourseResource($updated), $message);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
         }
     }
 }

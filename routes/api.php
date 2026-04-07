@@ -133,6 +133,10 @@ Route::prefix('v1')->group(function () {
 //Advertisement
             Route::get('/advertisements', [AdvertisementController::class, 'index']);
             Route::get('/advertisements/{advertisement}', [AdvertisementController::class, 'show']);
+
+ // Courses
+            Route::get('/courses', [CourseController::class, 'index']);
+            Route::get('/courses/{course}', [CourseController::class, 'show']);
         });
         // المسارات المحمية (لا يمكن الدخول لها إلا بتوكن صالح)
         Route::middleware('auth:sanctum')->group(function () {
@@ -177,6 +181,14 @@ Route::post('/update-fcm-token', 'updateFcmToken');
             Route::post('store', 'store');
             Route::post('update/{advertisement}', 'update');
             Route::delete('destroy/{advertisement}', 'destroy');
+        });
+
+
+        Route::prefix('courses')->controller(CourseController::class)->group(function () {
+            Route::post('store', 'store');
+            Route::post('update/{course}', 'update');
+            Route::delete('destroy/{course}', 'destroy');
+            Route::post('toggle-status/{course}', 'toggleStatus');
         });
         });
 

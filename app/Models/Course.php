@@ -27,6 +27,11 @@ class Course extends Model
         'is_active',
         'created_by',
     'updated_by',
+    'slug',
+    'duration',
+    'start_date',
+    'end_date',
+    'institute_id',
     ];
 
     /**
@@ -56,11 +61,11 @@ class Course extends Model
 public function creator()
 {
     // الكورس ينتمي إلى موظف (Employee) من خلال حقل created_by
-    return $this->belongsTo(Employee::class, 'created_by');
+    return $this->belongsTo(User::class, 'created_by');
 }
 public function updater()
 {
-    return $this->belongsTo(Employee::class, 'updated_by');
+    return $this->belongsTo(User::class, 'updated_by');
 }
 // أضف هذه الدالة داخل كلاس Course
 public function diplomas(): BelongsToMany
