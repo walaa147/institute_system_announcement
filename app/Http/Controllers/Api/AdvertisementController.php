@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Gate;
 class AdvertisementController extends Controller
 {
     use ApiResponse;
+    protected array $relations = ['advertisable', 'institute', 'department', 'creator'];
 
     public function __construct(protected AdvertisementService $service) {}
 
@@ -24,7 +25,7 @@ class AdvertisementController extends Controller
      */
     public function index(): JsonResponse
     {
-        $ads = Advertisement::with(['advertisable'])->latest()->paginate(15);
+        $ads = Advertisement::with($this->relations)->latest()->paginate(15);
         return $this->successResponse(ApiAdvertisementResource::collection($ads),__('validation.custom.advertisement.fetched_success'));
     }
 
@@ -37,6 +38,7 @@ class AdvertisementController extends Controller
 
         try {
             $ad = $this->service->store($request->validated());
+            $ad->load($this->relations);
             return $this->successResponse(new ApiAdvertisementResource($ad), __('validation.custom.advertisement.created_success'), 201);
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
@@ -48,7 +50,7 @@ class AdvertisementController extends Controller
      */
     public function show($id): JsonResponse
     {
-        $ad = Advertisement::find($id);
+        $ad = Advertisement::with($this->relations)->find($id);
         if (!$ad) return $this->errorResponse(__('validation.custom.advertisement.not_found'), 404);
 
         Gate::authorize('view', $ad);
@@ -68,6 +70,7 @@ class AdvertisementController extends Controller
 
         try {
             $updated = $this->service->update($ad, $request->validated());
+            $updated->load($this->relations);
             return $this->successResponse(new ApiAdvertisementResource($updated), __('validation.custom.advertisement.updated_success'));
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);

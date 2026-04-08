@@ -5,21 +5,27 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Builder;
+use Carbon\Carbon;
 
 class Advertisement extends Model
 {
     use SoftDeletes;
 
     protected $guarded = ['id'];
-    protected $casts = [
-        'is_active' => 'boolean',
+  protected $casts = [
+        'is_active'           => 'boolean',
         'is_open_for_booking' => 'boolean',
-        'is_free' => 'boolean',
-        'has_certificate' => 'boolean',
-        'event_date' => 'datetime',
-        'discount_expiry' => 'datetime',
+        'is_free'             => 'boolean',
+        'has_certificate'     => 'boolean',
+        'published_at'        => 'datetime',
+        'start_date'          => 'datetime',
+        'end_date'            => 'datetime',
+        'event_date'          => 'datetime',
+        'discount_expiry'     => 'datetime',
+        'expired_at'          => 'datetime',
+        'created_at'          => 'datetime',
+        'updated_at'          => 'datetime',
     ];
-
      protected $with = ['institute:id,name_ar,name_en','department:id,name_ar,name_en'];
      protected $withCount = ['bookings','waitingLists']; // لجلب عدد الحجوزات وقوائم الانتظار تلقائياً
 
@@ -43,32 +49,33 @@ public function waitingLists()
 {
     return $this->morphMany(WaitingList::class, 'bookable');
 }
-// protected static function booted()
-// {
-//     static::addGlobalScope('active', function (Builder $builder) {
-//         // نحدد المستخدم عبر sanctum لضمان الدقة في الـ API
-//         $user = auth('sanctum')->user();
+public function department()
+    {
+        return $this->belongsTo(Department::class);
+    }
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+    public function updater()
+    {
+        return $this->belongsTo(User::class, 'updated_by');
+    }
 
-//         // نطبق الفلترة فقط إذا:
-//         // 1. المستخدم زائر (غير مسجل).
-//         // 2. أو المستخدم مسجل لكنه ليس (Admin/Secretary).
-//         if (!$user || !($user instanceof \App\Models\User && $user->isStatusAdmin())) {
-//             $builder->where('is_active', true);
-//         }
-//         else{
-//            $builder->where('institute_id', $user->institute_id);
 
-//         }
-//     });
-// }
 protected static function booted()
 {
     static::addGlobalScope('active_access', function (Builder $builder) {
         $user = auth('sanctum')->user();
+        $now = Carbon::now();
 
         // 1. إذا كان زائر أو مستخدم عادي (ليس أدمن/سكرتير) -> يرى المفعل فقط
         if (!$user || !($user instanceof \App\Models\User && $user->isStatusAdmin())) {
-            $builder->where('is_active', true);
+            $builder->where('is_active', true)->where(function ($query) use ($now) {
+                $query->whereNull('published_at')->orWhere('published_at', '<=', $now);
+            })->where(function ($query) use ($now) {
+                $query->whereNull('expired_at')->orWhere('expired_at', '>=', $now);
+            });
             return;
         }
 
@@ -79,9 +86,17 @@ protected static function booted()
 
         // 3. المنطق المشترك للسكرتير/أدمن المعهد:
         // يرى (كل بيانات معهده) أَوْ (البيانات المفعلة في المعاهد الأخرى)
-        $builder->where(function ($query) use ($user) {
+        $builder->where(function ($query) use ($user,$now) {
             $query->where('institute_id', $user->institute_id)
-                  ->orWhere('is_active', true);
+                  ->orWhere(function ($q) use ($now){
+                        $q->where('is_active', true)
+                            ->where(function ($subQ) use ($now) {
+                                $subQ->whereNull('published_at')->orWhere('published_at', '<=', $now);
+                            })->where(function ($subQ) use ($now) {
+                                $subQ->whereNull('expired_at')->orWhere('expired_at', '>=', $now);
+                            });
+                    });
+
         });
     });
 }

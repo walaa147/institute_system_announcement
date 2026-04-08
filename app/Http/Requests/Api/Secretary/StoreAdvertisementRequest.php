@@ -24,7 +24,7 @@ class StoreAdvertisementRequest extends FormRequest
             'title_en' => 'nullable|string|max:150',
             'description_ar' => 'nullable|string',
             'description_en' => 'nullable|string',
-            'department_id' => 'required|exists:departments,id',
+            'department_id' => 'nullable|exists:departments,id',
 
             // الربط المتعدد (Morph)
             'advertisable_id' => 'nullable|integer',
@@ -49,13 +49,13 @@ class StoreAdvertisementRequest extends FormRequest
             // المقاعد والتواريخ
             'max_seats' => 'nullable|integer|min:1',
             'event_date' => 'nullable|date|after_or_equal:today',// تاريخ الحدث يجب أن يكون اليوم أو في المستقبل
-            'start_date' => 'nullable|date',// تاريخ بدء الإعلان
+            'start_date' => 'nullable|date|after_or_equal:published_at',// تاريخ بدء الإعلان
             'end_date' => 'nullable|date|after_or_equal:start_date',// تأكد أن تاريخ الانتهاء بعد تاريخ البدء
-            'expired_at' => 'nullable|date|after:now',// تاريخ انتهاء صلاحية الإعلان
+            'expired_at' => 'nullable|date|after:start_date',// تاريخ انتهاء صلاحية الإعلان
             'duration' => 'nullable|string|max:50',// مدة الحدث (مثلاً: "3 ساعات" أو "1 يوم")
             'is_active' => 'sometimes|boolean',// حالة الإعلان (نشط أو غير نشط)
             'current_seats_taken' => 'nullable|integer|min:0',// عدد المقاعد المحجوزة حالياً
-            'published_at' => 'nullable|date',// تاريخ نشر الإعلان
+            'published_at' => 'nullable|date|after_or_equal:today',// تاريخ نشر الإعلان
 
             // حقول إضافية
             'location' => 'nullable|string|max:255',

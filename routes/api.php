@@ -181,6 +181,7 @@ Route::post('/update-fcm-token', 'updateFcmToken');
             Route::post('store', 'store');
             Route::post('update/{advertisement}', 'update');
             Route::delete('destroy/{advertisement}', 'destroy');
+            Route::post('toggle-status/{advertisement}', 'toggleStatus');
         });
 
 

@@ -19,51 +19,85 @@ class AdvertisementService
     {
         $this->imageService = $imageService;
     }
-
     public function store(array $data): Advertisement
 {
     $user = request()->user();
+
+    // 1. تحديد النوع تلقائياً (كورس هو الافتراضي)
+    $type = $data['type'] ?? 'course';
+    $modelClass = ($type === 'diploma') ? \App\Models\Diploma::class : \App\Models\Course::class;
+
+    // 2. جلب الكائن المرتبط (الكورس أو الدبلوم)
+    $item = $modelClass::findOrFail($data['advertisable_id']);
+    $data['department_id'] = $data['department_id'] ?? $item->department_id;
     $this->verifyDepartmentBelongsToInstitute($data['department_id'], $user);
 
-    // السحب التلقائي الذكي
-    if (!empty($data['advertisable_id']) && !empty($data['advertisable_type'])) {
-        $related = $data['advertisable_type']::find($data['advertisable_id']);
 
-        if ($related) {
-            // سحب البيانات الأساسية إذا كانت فارغة
-            $data['title_ar'] = $data['title_ar'] ?? $related->name_ar;
-            $data['title_en'] = $data['title_en'] ?? $related->name_en;
-            $data['description_ar'] = $data['description_ar'] ?? $related->description;
-            $data['description_en'] = $data['description_en'] ?? $related->description;
-            $data['duration'] = $data['duration'] ?? $related->duration;
+    // 3. سحب البيانات تلقائياً من الكورس/الدبلوم إلى مصفوفة الإعلان
+    $data['advertisable_type'] = $modelClass;
+    $data['title_ar']       = $data['title_ar'] ?? $item->name_ar;
+    $data['title_en']       = $data['title_en'] ?? $item->name_en;
+    $data['description_ar'] = $data['description_ar'] ?? ($item->description_ar ?? $item->description);
+    $data['description_en'] = $data['description_en'] ?? ($item->description_en ?? $item->description);
+    $data['duration']       = $data['duration'] ?? $item->duration;
+    $data['start_date'] = $data['start_date'] ?? $item->start_date;
+    $data['end_date']   = $data['end_date']   ?? $item->end_date;
+    $data['published_at'] = $data['published_at'] ?? now(); // افتراضياً ينشر الآن
+    if (empty($data['expired_at'])) {
+        $data['expired_at'] = \Carbon\Carbon::parse($data['start_date'])->subDay(); // انتهاء قبل يوم من بدء الحدث
 
-            // التعامل مع السعر حسب نوع المورد (كورس أو دبلوم)
-            $price = ($data['advertisable_type'] === 'App\Models\Course') ? $related->price : $related->total_cost;
-            $data['price_before_discount'] = $data['price_before_discount'] ?? $price;
-
-            // سحب الصورة إذا لم يتم رفع صورة جديدة
-            if (!request()->hasFile('image_path') && $related->photo_path) {
-                $data['image_path'] = $related->photo_path;
-            }
-        }
     }
-    if(request()->hasFile('image_path')) {
-        $data['image_path'] = $this->imageService->updateImage(null, request()->file('image_path'), 'advertisements');
+    $data['is_active'] = \Carbon\Carbon::parse($data['published_at'])->isPast();
+
+    // 4. تحديد السعر الأصلي (حسب نوع الموديل)
+    $originalPrice = ($modelClass === \App\Models\Course::class) ? $item->price : $item->total_cost;
+    $data['price_before_discount'] = $data['price_before_discount'] ?? $originalPrice;
+
+    // 5. حساب السعر بعد الخصم
+    $discount = $data['discount_percentage'] ?? 0;
+    $data['price_after_discount'] = $data['price_before_discount'] - ($data['price_before_discount'] * ($discount / 100));
+
+    // 6. معالجة الصورة (إذا لم ترفع صورة جديدة، اسحب صورة الكورس)
+    if (!request()->hasFile('image_path')) {
+        $data['image_path'] = $item->photo_path ?? $item->photo;
+    } else {
+       // التعديل: ضع الملف أولاً ثم null للمسار القديم
+$data['image_path'] = $this->imageService->updateImage(
+    request()->file('image_path'), // المعامل الأول: الملف الجديد
+    null,                          // المعامل الثاني: لا يوجد مسار قديم عند الإضافة
+    'advertisements'               // المعامل الثالث: المجلد
+);
     }
 
-    // تعيين القيم التلقائية
+    // 7. تعيين القيم الإدارية والـ Slug
     $data['slug'] = Str::slug($data['title_ar'] ?? 'ad') . '-' . Str::random(6);
     $data['created_by'] = $user->id;
-    $data['institute_id'] = $user->hasRole('super_admin') ? $data['institute_id'] : $user->institute_id;
-    $data['published_at'] = $data['published_at'] ?? now();
+  // 7. تعيين المعهد (منطق خاص للسوبر أدمن والأدمن العادي)
+if ($user->hasRole('super_admin')) {
+    // السوبر أدمن:
+    // 1. نأخذ المعهد الذي أرسله في الـ Request.
+    // 2. إذا لم يرسل، نسحبه من الكورس/الدبلوم المرتبط تلقائياً.
+    $data['institute_id'] = $data['institute_id'] ?? $item->institute_id;
+} else {
+    // الأدمن العادي أو السكرتير:
+    // نأخذ معهد المستخدم المسجل في حسابه (لضمان الأمان وعدم التلاعب).
+    // وإذا كان فارغاً في حسابه، نلجأ لمعهد الكورس.
+    $data['institute_id'] = $user->institute_id ?? $item->institute_id;
+}
 
-    if (request()->hasFile('image_path')) {
-        $data['image_path'] = request()->file('image_path')->store('advertisements', 'public');
-    }
+// تأكد من وجود القيمة قبل الإرسال لقاعدة البيانات لتجنب خطأ الـ Integrity Constraint
+if (empty($data['institute_id'])) {
+    throw new \Exception("فشل تحديد المعهد: يجب توفير رقم المعهد أو التأكد من ارتباط الكورس بمعهد.");
+}
+// التحقق من أن مقاعد الحجز المبكر منطقية
+if (isset($data['early_paid_seats_limit']) && $data['early_paid_seats_limit'] > ($data['max_seats'] ?? 100)) {
+    throw new \Exception("مقاعد الحجز المبكر لا يمكن أن تكون أكثر من إجمالي المقاعد.");
+}
 
     return DB::transaction(fn() => Advertisement::create($data));
 }
-    public function update(Advertisement $advertisement, array $data): Advertisement
+
+       public function update(Advertisement $advertisement, array $data): Advertisement
     {
         $user = request()->user();
 
@@ -71,13 +105,21 @@ class AdvertisementService
         if (isset($data['department_id'])) {
             $this->verifyDepartmentBelongsToInstitute($data['department_id'], $user);
         }
+        // إعادة حساب الخصم إذا تغير السعر أو النسبة
+        if (isset($data['discount_percentage']) || isset($data['price_before_discount'])) {
+            $priceBefore = $data['price_before_discount'] ?? $advertisement->price_before_discount;
+            $percentage = $data['discount_percentage'] ?? $advertisement->discount_percentage;
+            $data['price_after_discount'] = $priceBefore - ($priceBefore * ($percentage / 100));
+        }
 
         // معالجة الصورة الجديدة وحذف القديمة
         if (request()->hasFile('image_path')) {
-            if ($advertisement->image_path) {
-                Storage::disk('public')->delete($advertisement->image_path);
-            }
-            $data['image_path'] = request()->file('image_path')->store('advertisements', 'public');
+           // التعديل: الملف الجديد أولاً ثم المسار الحالي للإعلان
+$data['image_path'] = $this->imageService->updateImage(
+    request()->file('image_path'),
+    $advertisement->image_path,    // هنا نمرر المسار القديم ليتم حذفه
+    'advertisements'
+);
         }
 
         if (isset($data['title_ar'])) {
@@ -95,7 +137,8 @@ class AdvertisementService
         return DB::transaction(function () use ($advertisement) {
             // حذف الصورة من التخزين عند حذف السجل نهائياً
             if ($advertisement->image_path) {
-                Storage::disk('public')->delete($advertisement->image_path);
+                // استخدام الخدمة للحذف بدلاً من Storage المباشر
+                $this->imageService->deleteImage($advertisement->image_path);
             }
             return $advertisement->delete();
         });

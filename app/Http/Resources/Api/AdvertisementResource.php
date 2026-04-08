@@ -31,19 +31,53 @@ class AdvertisementResource extends JsonResource
             'price_before'        => $this->price_before_discount,
             'price_after'         => $this->price_after_discount,
             'discount_percentage' => $this->discount_percentage,
+'max_seats'           => (int)$this->max_seats,
+'current_seats_taken' => (int)$this->current_seats_taken,
+'available_seats'     =>max(0, $this->max_seats - $this->current_seats_taken),
 
-            // المقاعد والحجز
-            'max_seats'           => $this->max_seats,
-            'available_seats'     => $this->max_seats - $this->current_seats_taken,
-            'is_open_for_booking' => (bool) $this->is_open_for_booking,
+// هل الحجز المبكر لا يزال متاحاً؟
+'is_early_bird_available' => $this->early_paid_seats_limit > 0 && ($this->current_seats_taken < $this->early_paid_seats_limit),
+// حالة المقاعد
+'is_full' => $this->current_seats_taken >= $this->max_seats,
+'is_open_for_booking' => (bool) $this->is_open_for_booking,
+
 
             // التواريخ
             'event_date'          => $this->event_date?->format('Y-m-d H:i'),
             'expired_at'          => $this->expired_at?->format('Y-m-d H:i'),
+            'start_date'   => $this->start_date?->format('Y-m-d H:i'),
+'end_date'     => $this->end_date?->format('Y-m-d H:i'),
+'published_at' => $this->published_at?->format('Y-m-d H:i'),
+            'duration'     => $this->duration,
 
-            // العلاقات (Eager Loading)
-            'institute'           => $this->whenLoaded('institute'),
-            'department'          => $this->whenLoaded('department'),
+            // العلاقات
+            'institute'          => $this->whenLoaded('institute', function() {
+                return [
+                    'id' => $this->institute->id,
+                    'name_ar' => $this->institute->name_ar,
+                    'name_en' => $this->institute->name_en,
+                ];
+            }),
+            'department'         => $this->whenLoaded('department', function() {
+                return [
+                    'id' => $this->department?->id,
+                    'name_ar' => $this->department?->name_ar,
+                    'name_en' => $this->department?->name_en,
+                ];
+            }),
+'created_by'         => $this->whenLoaded('creator', function() {
+    return [
+        'id' => $this->creator->id,
+        'name' => $this->creator->name,
+    ];
+}),
+'updated_by'         => $this->whenLoaded('updater', function() {
+    return [
+        'id' => $this->updater?->id,
+        'name' => $this->updater?->name,
+    ];
+}),
+
 
             // المنطق الخاص بالربط المتعدد (Course or Diploma)
             'related_info'        => $this->when($this->advertisable_type, function() {
