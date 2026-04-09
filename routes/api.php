@@ -141,6 +141,7 @@ Route::prefix('v1')->group(function () {
         // المسارات المحمية (لا يمكن الدخول لها إلا بتوكن صالح)
         Route::middleware('auth:sanctum')->group(function () {
             Route::post('logout', [AuthController::class, 'logout']);
+            Route::post('courses/toggle-like/{id}', [CourseController::class, 'toggleLike']);
               // بيانات المستخدم الشخصية
    Route::get('/user', function (Request $request) {
          return $request->user();

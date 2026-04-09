@@ -154,13 +154,7 @@ class CourseController extends Controller
 public function publicIndex(FilterCourseRequest $request): JsonResponse
 {
     // استدعاء الخدمة مع البيانات المفلترة
-    $courses = $this->service->getPublicCourses($request->validated())
-        ->with('department.institute')
-        ->withCount('likes')
-        ->where('is_active', true)
-        ->latest()
-        ->paginate(15);
-
+    $courses = $this->service->getPublicCourses($request->validated());
 
     return $this->successResponse(
         CourseResource::collection($courses),
