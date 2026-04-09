@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Resources;
+namespace App\Http\Resources\Api\Booking;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -8,32 +8,70 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class BookingResource extends JsonResource
 {
     /**
-     * تحويل الكائن إلى مصفوفة JSON.
+     * تحويل الكائن إلى مصفوفة JSON متوافقة مع التعديلات الجديدة.
      */
     public function toArray($request): array
-{
-    return [
-        'id'           => $this->id,
-        'booking_type' => $this->diploma_id ? 'diploma' : 'course',
-        'customer'     => [
-            'id'    => $this->user_id,
-            'name'  => $this->whenLoaded('user', fn() => $this->user->name),
-        ],
-        'booked_item' => [
-    'id'    => $this->diploma_id ?? $this->course_id,
-    'title' => $this->diploma_id
-        ? $this->whenLoaded('diploma', fn() => $this->diploma->title_ar) // الدبلوم يستخدم title_ar
-        : $this->whenLoaded('course', fn() => $this->course->name_ar),    // الكورس يستخدم name
-    'type'  => $this->diploma_id ? 'Diploma' : 'Course',
-],
-        'pricing'      => [
-            'original_price' => (float) $this->original_price,
-            'final_price'    => (float) $this->final_price,
-        ],
-        'is_paid'      => (bool) $this->is_paid,
-        'created_at'   => $this->created_at->format('Y-m-d H:i'),
-    ];
-}
-}
+    {
+        return [
+            'id'             => $this->id,
+            'status'         => $this->status, // draft, confirmed, cancelled, attended
+            'booking_type'   => $this->booking_type, // early (مبكر) أو regular (عادي)
 
+            // بيانات الطالب
+            'customer'       => [
+                'id'   => $this->user_id,
+                'name' => $this->whenLoaded('user', fn() => $this->user->name),
+            ],
 
+            // بيانات الإعلان المحجوز
+            'booked_item'    => [
+                'id'    => $this->bookable_id,
+                'type'  => str_replace('App\Models\\', '', $this->bookable_type),
+                'title' => $this->getBookableTitle(),
+            ],
+
+            // تفاصيل السعر
+            'pricing'        => [
+                'original_price'  => (float) $this->original_price,
+                'discount_amount' => (float) $this->discount_amount,
+                'final_price'     => (float) $this->final_price,
+            ],
+
+            // تفاصيل الدفع والبنك (مهمة للموبايل وللسكرتير)
+            'payment_info'   => [
+                'payment_status'  => $this->payment_status, // pending, authorized, paid
+                'is_paid'         => (bool) $this->is_paid,
+                'method'          => $this->payment_method,
+                'transaction_id'  => $this->transaction_id,
+                'paid_at'         => $this->paid_at ? $this->paid_at->format('Y-m-d H:i') : null,
+            ],
+
+            // بيانات الأداء والوقت
+            'performance'    => [
+                'created_at'   => $this->created_at->format('Y-m-d H:i'),
+                'confirmed_at' => $this->confirmed_at ? $this->confirmed_at->format('Y-m-d H:i') : null,
+                'processed_by' => $this->whenLoaded('processor', fn() => $this->processor->name),
+            ],
+
+            'can_review'     => $this->status === 'attended',
+        ];
+    }
+
+    /**
+     * دالة مساعدة لجلب العنوان بناءً على نوع الموديل المحجوز
+     */
+    protected function getBookableTitle()
+    {
+        if (!$this->relationLoaded('bookable')) {
+            return null;
+        }
+
+        // حسب جدول الإعلانات الخاص بك، نستخدم title_ar أو title
+        return match ($this->bookable_type) {
+            'App\Models\Advertisement' => $this->bookable->title_ar ?? $this->bookable->title,
+            'App\Models\Course'        => $this->bookable->name_ar ?? $this->bookable->name,
+            'App\Models\Diploma'       => $this->bookable->title_ar ?? $this->bookable->title,
+            default                    => 'Unknown Item',
+        };
+    }
+}

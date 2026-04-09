@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\LikeController;
 use App\Http\Controllers\Api\InstituteController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\BookingController;
+
 use App\Http\Controllers\Api\FavoriteInstituteController;
 
 use Termwind\Components\Raw;
@@ -122,6 +123,7 @@ Route::prefix('v1')->group(function () {
         // المسارات العامة (للزوار والطلاب الجدد)
         Route::post('register', 'register');
         Route::post('login', 'login');});
+        // مسار لمحاكاة نجاح الدفع (للتجربة والعرض فقط)
 
        Route::prefix('view')->group(function () {
 //  institute
@@ -142,6 +144,12 @@ Route::prefix('v1')->group(function () {
         Route::middleware('auth:sanctum')->group(function () {
             Route::post('logout', [AuthController::class, 'logout']);
             Route::post('courses/toggle-like/{id}', [CourseController::class, 'toggleLike']);
+
+           Route::prefix('bookings')->controller(BookingController::class)->group(function () {
+            Route::get('show', 'index');          // الطالب يرى حجوزاته / السكرتير يرى حجوزات معهده
+            Route::post('create', 'store');         // إنشاء حجز جديد (للطالب)
+            Route::get('/{booking}', 'show');  // عرض تفاصيل حجز معين
+        });
               // بيانات المستخدم الشخصية
    Route::get('/user', function (Request $request) {
          return $request->user();
@@ -184,7 +192,9 @@ Route::post('/update-fcm-token', 'updateFcmToken');
             Route::delete('destroy/{advertisement}', 'destroy');
             Route::post('toggle-status/{advertisement}', 'toggleStatus');
         });
-
+Route::prefix('bookings')->controller(BookingController::class)->group(function () {
+                Route::put('/{booking}/status', 'updateStatus'); // تأكيد، إلغاء، أو تسجيل حضور
+            });
 
         Route::prefix('courses')->controller(CourseController::class)->group(function () {
             Route::post('store', 'store');
@@ -203,6 +213,8 @@ Route::post('/update-fcm-token', 'updateFcmToken');
             Route::prefix('student/favorites/institutes')->controller(FavoriteInstituteController::class)->group(function () {
                 Route::get('show', 'index');               // عرض المعاهد المفضلة للطالب
                 Route::post('toggle/{institute}', 'toggle'); // إضافة/إزالة معهد من المفضلة
+        Route::post('bookings/{booking}/simulate-payment', [BookingController::class, 'simulatePayment']);
+
             });
         });
 

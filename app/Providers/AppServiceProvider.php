@@ -6,9 +6,10 @@ use App\Models\Advertisement;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 use App\Models\Department;
-
+use App\Models\Booking;
 use App\Policies\AdvertisementPolicy;
 use App\Policies\DepartmentPolicy;
+use App\Policies\BookingPolicy;
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -31,6 +32,7 @@ class AppServiceProvider extends ServiceProvider
         // تسجيل سياسة الوصول لقسم الإدارة
         Gate::policy(Department::class, DepartmentPolicy::class);
         Gate::policy(Advertisement::class,AdvertisementPolicy::class);
+        Gate::policy(Booking::class, BookingPolicy::class);
 
 
 
