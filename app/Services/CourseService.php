@@ -112,4 +112,55 @@ class CourseService
 
         return $code;
     }
+
+
+    /**
+     * جلب الكورسات للزوار والطلاب مع دعم الفلترة والبحث
+     */
+    public function getPublicCourses(array $filters)
+    {
+        // استخدام when للتحقق الذكي: إذا وجد الفلتر يتم تطبيق الاستعلام، وإلا يتم تجاهله
+        return Course::with(['department.institute', 'likes']) // جلب العلاقات لتجنب N+1
+            ->withCount('likes')
+            ->where('is_active', true) // الزائر يرى الكورسات النشطة فقط
+            ->when($filters['search'] ?? null, function ($query, $search) {
+                // البحث في الاسم العربي، الإنجليزي، أو العنوان
+                $query->where(function ($q) use ($search) {
+                    $q->where('name_ar', 'LIKE', "%{$search}%")
+                      ->orWhere('name_en', 'LIKE', "%{$search}%")
+                      ->orWhere('title_ar', 'LIKE', "%{$search}%");
+                });
+            })
+            ->when($filters['department_id'] ?? null, function ($query, $departmentId) {
+                // الفلترة برقم القسم
+                $query->where('department_id', $departmentId);
+            })
+            ->latest()
+            ->paginate(15);
+    }
+
+    /**
+     * تفاعل الطالب: إضافة أو إزالة الإعجاب (Toggle Like)
+     */
+    public function toggleLike(Course $course, $user): array
+    {
+        // التحقق مما إذا كان المستخدم قد أعجب بالكورس مسبقاً
+        // نستخدم العلاقة المتعددة الأشكال (Polymorphic) بشكل مباشر
+        $existingLike = $course->likes()->where('user_id', $user->id)->first();
+
+        if ($existingLike) {
+            // إذا وجدنا إعجاباً، نقوم بحذفه (سحب الإعجاب)
+            $existingLike->delete();
+            return ['is_liked' => false];
+        }
+
+        // إذا لم نجد إعجاباً، نقوم بإنشائه
+        $course->likes()->create([
+            'user_id' => $user->id
+            // لاحظ أننا لا نمرر likeable_type أو likeable_id
+            // لأن لارافل سيقوم بتعبئتها تلقائياً بفضل العلاقة
+        ]);
+
+        return ['is_liked' => true];
+    }
 }

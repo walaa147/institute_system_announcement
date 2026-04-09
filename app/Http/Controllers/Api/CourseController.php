@@ -7,10 +7,12 @@ use App\Models\Course;
 use App\Services\CourseService;
 use App\Http\Requests\Api\Secretary\StoreCourseRequest;
 use App\Http\Requests\Api\Secretary\UpdateCourseRequest;
+use App\Http\Requests\Api\Users\FilterCourseRequest;
 use App\Http\Resources\Api\CourseResource;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Auth;
 
 class CourseController extends Controller
 {
@@ -23,10 +25,10 @@ class CourseController extends Controller
      */
     public function index(): JsonResponse
     {
-        // دمجنا التحميل المسبق من الكود القديم، مع الـ Pagination من الكود الجديد
+
         $courses = Course::with(['department.institute', 'creator', 'likes'])
             ->withCount('likes')
-            ->where('is_active', true) // جلب الكورسات النشطة فقط
+           // ->where('is_active', true) // جلب الكورسات النشطة فقط
             ->latest()
             ->paginate(15);
 
@@ -143,4 +145,51 @@ class CourseController extends Controller
             return $this->errorResponse($e->getMessage(), 500);
         }
     }
+
+
+
+    /**
+ * عرض قائمة الكورسات للزوار مع دعم البحث والفلترة
+ */
+public function publicIndex(FilterCourseRequest $request): JsonResponse
+{
+    // استدعاء الخدمة مع البيانات المفلترة
+    $courses = $this->service->getPublicCourses($request->validated())
+        ->with('department.institute')
+        ->withCount('likes')
+        ->where('is_active', true)
+        ->latest()
+        ->paginate(15);
+
+
+    return $this->successResponse(
+        CourseResource::collection($courses),
+        __('validation.custom.course.fetched_success')
+    );
+}
+
+/**
+ * إبداء الإعجاب أو إلغاؤه (Toggle Like)
+ */
+public function toggleLike($id): JsonResponse
+{
+    // البحث عن الكورس يدوياً لتوحيد رسائل الخطأ
+    $course = Course::find($id);
+    if (!$course) {
+        return $this->errorResponse(__('validation.custom.course.not_found'), 404);
+    }
+
+    try {
+        // تمرير الكورس والمستخدم الحالي للخدمة
+        $result = $this->service->toggleLike($course, Auth::user());
+
+        $message = $result['is_liked']
+            ? __('validation.custom.course.liked_success')
+            : __('validation.custom.course.unliked_success');
+
+        return $this->successResponse($result, $message);
+    } catch (\Exception $e) {
+        return $this->errorResponse($e->getMessage(), 500);
+    }
+}
 }

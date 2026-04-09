@@ -135,7 +135,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/advertisements/{advertisement}', [AdvertisementController::class, 'show']);
 
  // Courses
-            Route::get('/courses', [CourseController::class, 'index']);
+            Route::get('/courses', [CourseController::class, 'publicIndex']);
             Route::get('/courses/{course}', [CourseController::class, 'show']);
         });
         // المسارات المحمية (لا يمكن الدخول لها إلا بتوكن صالح)
@@ -190,6 +190,7 @@ Route::post('/update-fcm-token', 'updateFcmToken');
             Route::post('update/{course}', 'update');
             Route::delete('destroy/{course}', 'destroy');
             Route::post('toggle-status/{course}', 'toggleStatus');
+             Route::post('index', 'index');
         });
         });
 
