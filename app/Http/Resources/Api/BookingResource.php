@@ -1,15 +1,11 @@
 <?php
 
-namespace App\Http\Resources\Api\Booking;
+namespace App\Http\Resources\Api; // تأكد أن حرف R و A كبيران
 
-use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class BookingResource extends JsonResource
 {
-    /**
-     * تحويل الكائن إلى مصفوفة JSON متوافقة مع التعديلات الجديدة.
-     */
     public function toArray($request): array
     {
         return [

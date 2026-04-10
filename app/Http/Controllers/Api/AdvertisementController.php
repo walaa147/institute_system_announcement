@@ -49,15 +49,30 @@ class AdvertisementController extends Controller
      * عرض تفاصيل إعلان محدد
      */
     public function show($id): JsonResponse
-    {
-        $ad = Advertisement::with($this->relations)->find($id);
-        if (!$ad) return $this->errorResponse(__('validation.custom.advertisement.not_found'), 404);
+{
+    // جلب الإعلان بدون القيود الزمنية أو قيود الحالة
+    $ad = Advertisement::withoutGlobalScopes()->with($this->relations)->find($id);
 
-        Gate::authorize('view', $ad);
-
-        return $this->successResponse(new ApiAdvertisementResource($ad), __('validation.custom.advertisement.fetched_success'));
+    if (!$ad) {
+        return $this->errorResponse(__('validation.custom.advertisement.not_found'), 404);
     }
 
+    // يدويًا: إذا لم يكن هناك مستخدم (زائر) والإعلان غير مفعل -> ارفض
+    $user = auth('sanctum')->user();
+
+    if (!$ad->is_active) {
+        if (!$user) {
+             return $this->errorResponse('Unauthorized', 403);
+        }
+
+        // إذا كان موجود، نختبر الصلاحية عبر الـ Policy
+        if (Gate::forUser($user)->denies('view', $ad)) {
+             return $this->errorResponse('Unauthorized', 403);
+        }
+    }
+
+    return $this->successResponse(new ApiAdvertisementResource($ad), __('validation.custom.advertisement.fetched_success'));
+}
     /**
      * تحديث إعلان
      */

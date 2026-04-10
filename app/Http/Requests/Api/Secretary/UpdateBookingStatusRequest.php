@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Requests\Api\Booking;
+namespace App\Http\Requests\Api\Secretary;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
