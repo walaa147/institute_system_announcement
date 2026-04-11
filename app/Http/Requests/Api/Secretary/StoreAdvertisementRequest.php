@@ -44,6 +44,7 @@ class StoreAdvertisementRequest extends FormRequest
             'discount_percentage' => 'nullable|numeric|between:0,100',
             'discount_expiry' => 'nullable|date|after:now',
             'early_paid_price' => 'nullable|numeric|min:0',
+            'early_paid_seats_limit' => 'nullable|integer|min:0',
             'is_free' => 'sometimes|boolean',
 
             // المقاعد والتواريخ

@@ -147,13 +147,21 @@ Route::prefix('v1')->group(function () {
 
            Route::prefix('bookings')->controller(BookingController::class)->group(function () {
             Route::get('show', 'index');          // الطالب يرى حجوزاته / السكرتير يرى حجوزات معهده
-            Route::post('create', 'store');         // إنشاء حجز جديد (للطالب)
-            Route::get('/{booking}', 'show');  // عرض تفاصيل حجز معين
+
+            Route::get('show/{booking}', 'show');  // عرض تفاصيل حجز معين
         });
               // بيانات المستخدم الشخصية
    Route::get('/user', function (Request $request) {
          return $request->user();
     });
+
+            Route::prefix('bookings')->controller(BookingController::class)->group(function () {
+            Route::post('create', 'store');         // إنشاء حجز جديد (للطالب)
+
+            Route::post('cancel',  'cancel');
+            Route::post('{booking}/simulate-payment',  'simulatePayment');
+        });
+
 
 
 Route::prefix('profile')->controller(ProfileController::class   )->group(function () {
@@ -193,7 +201,7 @@ Route::post('/update-fcm-token', 'updateFcmToken');
             Route::post('toggle-status/{advertisement}', 'toggleStatus');
         });
 Route::prefix('bookings')->controller(BookingController::class)->group(function () {
-                Route::put('/{booking}/status', 'updateStatus'); // تأكيد، إلغاء، أو تسجيل حضور
+                Route::post('{booking}/status', 'updateStatus'); // تأكيد، إلغاء، أو تسجيل حضور
             });
 
         Route::prefix('courses')->controller(CourseController::class)->group(function () {
@@ -213,11 +221,10 @@ Route::prefix('bookings')->controller(BookingController::class)->group(function 
             Route::prefix('student/favorites/institutes')->controller(FavoriteInstituteController::class)->group(function () {
                 Route::get('show', 'index');               // عرض المعاهد المفضلة للطالب
                 Route::post('toggle/{institute}', 'toggle'); // إضافة/إزالة معهد من المفضلة
-        Route::post('bookings/{booking}/simulate-payment', [BookingController::class, 'simulatePayment']);
+
 
             });
         });
-
         });
 
 

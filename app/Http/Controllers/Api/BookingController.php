@@ -31,54 +31,75 @@ class BookingController extends Controller
     }
 
     public function updateStatus(UpdateBookingStatusRequest $request, Booking $booking)
-    {
-        Gate::authorize('updateStatus', $booking);
+{
+    // البوليسي الآن يقوم بكل العمل
+    Gate::authorize('updateStatus', $booking);
 
-        try {
-            /** @var \App\Models\User $user */
-            $user = Auth::user();
-
-            if ($user->hasRole('secretary')) {
-                $instituteId = $booking->bookable->institute_id ?? null;
-                if ($instituteId !== $user->institute_id) {
-                    return response()->json(['message' => __('validation.custom.booking.unauthorized_access')], 403);
-                }
-            }
-
-            $updatedBooking = $this->bookingService->updateStatus($booking, $request->status, $user->id);
-
-            return response()->json([
-                'status' => true,
-                'message' => __('validation.custom.booking.status_updated_success'),
-                'data' => new BookingResource($updatedBooking)
-            ]);
-        } catch (\Exception $e) {
-            return response()->json(['status' => false, 'message' => $e->getMessage()], 400);
-        }
-    }
-
-    public function index()
-    {
-        /** @var \App\Models\User $user */
+    try {
         $user = Auth::user();
-        Gate::authorize('view', Booking::class);
+        $updatedBooking = $this->bookingService->updateStatus($booking, $request->status, $user->id);
 
-        try {
-            if ($user->hasRole('secretary')) {
-                $bookings = Booking::with(['user', 'bookable'])
-                    ->whereHasMorph('bookable', ['App\Models\Advertisement'], function ($query) use ($user) {
-                        $query->where('institute_id', $user->institute_id);
-                    })->latest()->paginate(10);
-            } else {
-                $bookings = $user->bookings()->with(['bookable'])->latest()->paginate(10);
-            }
+        return response()->json([
+            'status' => true,
+            'message' => __('validation.custom.booking.status_updated_success'),
+            'data' => new BookingResource($updatedBooking)
+        ]);
+    } catch (\Exception $e) {
+        return response()->json(['status' => false, 'message' => $e->getMessage()], 400);
+    }
+}
 
-            return BookingResource::collection($bookings);
-        } catch (\Exception $e) {
-            return response()->json(['status' => false, 'message' => __('validation.custom.booking.fetch_failed')], 500);
-        }
+    // App\Http\Controllers\Api\BookingController.php
+
+public function index()
+{
+    // نستخدم viewAny بدلاً من view
+    Gate::authorize('viewAny', Booking::class);
+/** @var \App\Models\User $user */
+    $user = Auth::user();
+
+    // بناء الاستعلام بناءً على الرتبة
+    $query = Booking::with(['user', 'bookable']);
+
+    if ($user->hasRole('secretary')) {
+        $query->whereHasMorph('bookable', [\App\Models\Advertisement::class], function ($q) use ($user) {
+            $q->where('institute_id', $user->institute_id);
+        });
+    } elseif ($user->hasRole('student')) {
+        $query->where('user_id', $user->id);
     }
 
+    return BookingResource::collection($query->latest()->paginate(10));
+}
+public function show(Booking $booking)
+{
+    // فحص الصلاحية: هل هذا الحجز يخص الطالب؟ أو هل هو ضمن معهد السكرتير؟
+    // لارافيل سيبحث تلقائياً عن دالة view($user, $booking) في الـ BookingPolicy
+    Gate::authorize('view', $booking);
+
+    return response()->json([
+        'status' => true,
+        'data' => new BookingResource($booking->load(['user', 'bookable', 'processor']))
+    ]);
+}
+public function cancel(Booking $booking)
+{
+    // فحص الصلاحية من البوليسي
+    Gate::authorize('cancel', $booking);
+
+    try {
+        // استدعاء الخدمة لتنفيذ الإلغاء وتحرير المقعد
+        $updatedBooking = $this->bookingService->cancelByStudent($booking);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'تم إلغاء الحجز بنجاح وتحرير المقعد.',
+            'data' => new BookingResource($updatedBooking)
+        ]);
+    } catch (\Exception $e) {
+        return response()->json(['status' => false, 'message' => $e->getMessage()], 400);
+    }
+}
     public function simulatePayment(Booking $booking)
     {
         if ($booking->status === 'cancelled') {

@@ -28,9 +28,14 @@ class AdvertisementResource extends JsonResource
             // الأسعار والحالة
             'is_active'           => (bool) $this->is_active,
             'is_free'             => (bool) $this->is_free,
+            'has_certificate'     => (bool) $this->has_certificate,
             'price_before'        => $this->price_before_discount,
             'price_after'         => $this->price_after_discount,
             'discount_percentage' => $this->discount_percentage,
+            // أضف هذه الأسطر داخل مصفوفة الـ toArray
+'early_paid_price'       => $this->early_paid_price,
+'early_paid_seats_limit' => (int) $this->early_paid_seats_limit,
+'discount_expiry'        => $this->discount_expiry?->format('Y-m-d H:i'),
 'max_seats'           => (int)$this->max_seats,
 'current_seats_taken' => (int)$this->current_seats_taken,
 'available_seats'     =>max(0, $this->max_seats - $this->current_seats_taken),

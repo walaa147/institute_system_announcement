@@ -80,38 +80,44 @@ public function createBooking(array $data): Booking
     /**
      * 2. تحديث الحالة
      */
-    public function updateStatus(Booking $booking, string $status, int $adminId): Booking
-    {
-        if ($booking->status === 'cancelled') {
-            throw new \Exception(__('validation.custom.booking.not_allowed_status'));
-        }
+// App\Services\BookingService.php
 
-        return DB::transaction(function () use ($booking, $status, $adminId) {
-            if ($status === 'confirmed' && $booking->status !== 'confirmed') {
-                $advertisement = $booking->bookable;
+public function updateStatus(Booking $booking, string $status, int $adminId): Booking
+{
+    return DB::transaction(function () use ($booking, $status, $adminId) {
 
-                if ($advertisement->max_seats && $advertisement->current_seats_taken >= $advertisement->max_seats) {
-                    throw new \Exception(__('validation.custom.booking.no_seats_available'));
-                }
+        // أهم خطوة: قفل سجل الإعلان للتأكد من عدد المقاعد بدقة
+        $advertisement = $booking->bookable()->lockForUpdate()->first();
 
-                $advertisement->increment('current_seats_taken');
-
-                $booking->update([
-                    'status'         => 'confirmed',
-                    'confirmed_at'   => now(),
-                    'processed_by'   => $adminId,
-                    'is_paid'        => true,
-                    'payment_status' => 'paid'
-                ]);
-
-                $this->updateInstitutePerformance($booking);
-            } else {
-                $booking->update(['status' => $status]);
+        if ($status === 'confirmed' && $booking->status !== 'confirmed') {
+            if ($advertisement->max_seats && $advertisement->current_seats_taken >= $advertisement->max_seats) {
+                throw new \Exception(__('validation.custom.booking.no_seats_available'));
             }
 
-            return $booking->refresh()->load(['bookable', 'user', 'processor']);
-        });
-    }
+            $advertisement->increment('current_seats_taken');
+
+            $booking->update([
+                'status' => 'confirmed',
+                'confirmed_at' => now(),
+                'processed_by' => $adminId,
+                'is_paid' => true,
+                'payment_status' => 'paid'
+            ]);
+            $this->updateInstitutePerformance($booking);
+        }
+
+        // حالة الإلغاء: إذا كان مؤكداً، نحرر المقعد
+        elseif ($status === 'cancelled' && $booking->status === 'confirmed') {
+            $advertisement->decrement('current_seats_taken');
+            $booking->update(['status' => 'cancelled', 'payment_status' => 'refunded']);
+        }
+        else {
+            $booking->update(['status' => $status]);
+        }
+
+        return $booking->refresh();
+    });
+}
 
     /**
      * 3. تفويض الدفع
@@ -130,6 +136,38 @@ public function createBooking(array $data): Booking
             return $booking->refresh()->load(['bookable', 'user']);
         });
     }
+    /**
+ * إلغاء الحجز من قبل الطالب
+ */
+public function cancelByStudent(Booking $booking): Booking
+{
+    // البدء في عملية مالية آمنة
+    return DB::transaction(function () use ($booking) {
+
+        // 1. قفل سجل الإعلان (لضمان تحديث المقاعد بدقة)
+        $advertisement = $booking->bookable()->lockForUpdate()->first();
+
+        // 2. التحقق: هل الحجز في حالة تسمح بالإلغاء؟
+        // (لا نؤيد إلغاء الحجز إذا كان 'attended' أو 'cancelled' مسبقاً)
+        if (in_array($booking->status, ['cancelled', 'attended'])) {
+            throw new \Exception(__('validation.custom.booking.cannot_cancel_now'));
+        }
+
+        // 3. إذا كان الحجز مؤكداً (Confirmed)، يجب إعادة المقعد للإعلان
+        if ($booking->status === 'confirmed') {
+            $advertisement->decrement('current_seats_taken');
+        }
+
+        // 4. تحديث بيانات الحجز
+        $booking->update([
+            'status' => 'cancelled',
+            'admin_notes' => 'تم الإلغاء بواسطة الطالب في: ' . now()->format('Y-m-d H:i'),
+            // إذا كان هناك نظام مالي معقد، يمكن تغيير حالة الدفع إلى 'refund_pending' هنا
+        ]);
+
+        return $booking->refresh();
+    });
+}
 
     protected function updateInstitutePerformance(Booking $booking)
     {

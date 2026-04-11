@@ -7,36 +7,43 @@ use App\Models\User;
 
 class BookingPolicy
 {
-    /**
-     * من يمكنه رؤية تفاصيل حجز معين؟
-     */
+    public function viewAny(User $user): bool
+    {
+        return true;
+    }
+
     public function view(User $user, Booking $booking): bool
     {
-        // الطالب يرى حجزه فقط
         if ($user->hasRole('student')) {
             return $user->id === $booking->user_id;
         }
 
-        // السكرتير يرى حجز معهده فقط
         if ($user->hasRole('secretary')) {
-            return $user->institute_id === $booking->institute_id;
+            // الوصول للمعهد من خلال الإعلان (bookable)
+            return $user->institute_id === ($booking->bookable->institute_id ?? null);
         }
 
-        // الأدمن يرى كل شيء
-        return $user->hasRole('admin');
+        return $user->hasRole(['admin', 'super_admin']);
     }
 
-    /**
-     * من يمكنه تحديث حالة الحجز (التأكيد/الإلغاء)؟
-     */
     public function updateStatus(User $user, Booking $booking): bool
     {
-        // السكرتير يحدث حجز معهده فقط وبشرط ألا يكون الحجز ملغى نهائياً
         if ($user->hasRole('secretary')) {
-            return $user->institute_id === $booking->institute_id
+            // التعديل هنا: نتحقق من المعهد عبر علاقة bookable
+            return $user->institute_id === ($booking->bookable->institute_id ?? null)
                    && $booking->status !== 'cancelled';
         }
 
-        return $user->hasRole('admin');
+        return $user->hasRole(['admin', 'super_admin']);
+    }
+
+    public function cancel(User $user, Booking $booking): bool
+    {
+        // الطالب يلغي حجز نفسه فقط إذا لم يتم تأكيده بعد
+        if ($user->hasRole('student')) {
+            return $user->id === $booking->user_id && $booking->status === 'draft';
+        }
+
+        return $user->hasRole(['admin', 'super_admin']);
     }
 }

@@ -87,11 +87,11 @@ if ($user->hasRole('super_admin')) {
 
 // تأكد من وجود القيمة قبل الإرسال لقاعدة البيانات لتجنب خطأ الـ Integrity Constraint
 if (empty($data['institute_id'])) {
-    throw new \Exception("فشل تحديد المعهد: يجب توفير رقم المعهد أو التأكد من ارتباط الكورس بمعهد.");
+    throw new \Exception(__('validation.custom.institute.required'));
 }
 // التحقق من أن مقاعد الحجز المبكر منطقية
 if (isset($data['early_paid_seats_limit']) && $data['early_paid_seats_limit'] > ($data['max_seats'] ?? 100)) {
-    throw new \Exception("مقاعد الحجز المبكر لا يمكن أن تكون أكثر من إجمالي المقاعد.");
+    throw new \Exception(__('validation.custom.advertisement.early_bird_limit_exceeded'));
 }
 
     return DB::transaction(fn() => Advertisement::create($data));
@@ -125,6 +125,9 @@ $data['image_path'] = $this->imageService->updateImage(
         if (isset($data['title_ar'])) {
             $data['slug'] = Str::slug($data['title_ar']) . '-' . Str::random(6);
         }
+        if(isset($data['max_seats']) && $advertisement->current_seats_taken > $data['max_seats']) {
+            throw new \Exception(__('validation.custom.advertisement.seats_limit_exceeded'));
+        }
 
         return DB::transaction(function () use ($advertisement, $data) {
             $advertisement->update($data);
@@ -135,6 +138,9 @@ $data['image_path'] = $this->imageService->updateImage(
     public function delete(Advertisement $advertisement): bool
     {
         return DB::transaction(function () use ($advertisement) {
+            if ($advertisement->bookings()->exists()) {
+            throw new \Exception(__('validation.custom.advertisement.has_bookings'));
+        }
             // حذف الصورة من التخزين عند حذف السجل نهائياً
             if ($advertisement->image_path) {
                 // استخدام الخدمة للحذف بدلاً من Storage المباشر
