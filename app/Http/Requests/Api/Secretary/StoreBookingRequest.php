@@ -30,7 +30,6 @@ class StoreBookingRequest extends FormRequest
             'bookable_id' => [
                 'required',
                 'integer',
-                'exists:advertisements,id', // نتحقق مباشرة من جدول الإعلانات
             ],
 
             // هذا الحقل مطلوب داخلياً (بسبب الـ merge) لكنه لن يظهر كخطأ للمستخدم
@@ -38,11 +37,8 @@ class StoreBookingRequest extends FormRequest
 
             'user_id' => [
                 'required',
-                Rule::unique('bookings')->where(function ($query) {
-                    return $query->where('user_id', Auth::id())
-                                 ->where('bookable_id', $this->bookable_id)
-                                 ->where('bookable_type', 'App\Models\Advertisement'); // نثبته هنا أيضاً
-                })
+                'integer',
+
             ]
         ];
     }

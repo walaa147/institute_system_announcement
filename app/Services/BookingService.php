@@ -17,64 +17,105 @@ class BookingService
      */
 public function createBooking(array $data): Booking
 {
-    // هذا السطر سيكشف لنا الحقيقة
-    // dd(\DB::table('advertisements')->where('id', $data['bookable_id'])->first());
-
-
     return DB::transaction(function () use ($data) {
 
-        // 1. استخدم التحقق اليدوي بدلاً من findOrFail للتأكد من الخطأ
+        // 1. التحقق من وجود الإعلان وصلاحيته للحجز
         $advertisement = Advertisement::find($data['bookable_id']);
 
         if (!$advertisement) {
             throw new \Exception("الإعلان رقم ({$data['bookable_id']}) غير موجود في النظام.");
+        }
+        if ($advertisement->max_seats && $advertisement->current_seats_taken >= $advertisement->max_seats) {
+            throw new \Exception(__('validation.custom.booking.no_seats_available'));
         }
 
         if (!$advertisement->is_open_for_booking) {
             throw new \Exception(__('validation.custom.booking.booking_closed'));
         }
 
-        // 2. تأكد من استخدام نفس الـ Type المثبت في الـ Request
-        $exists = Booking::where('user_id', Auth::id())
+        // 2. البحث عن حجز سابق (حتى لو كان ملغياً) لتجنب قيد Unique في قاعدة البيانات
+        $existingBooking = Booking::where('user_id', Auth::id())
             ->where('bookable_id', $data['bookable_id'])
-            ->where('bookable_type', 'App\Models\Advertisement') // ثبت المسار هنا أيضاً
-            ->whereIn('status', ['draft', 'confirmed', 'attended'])
-            ->exists();
+            ->where('bookable_type', 'App\Models\Advertisement')
+            ->first();
 
-        if ($exists) {
-            throw new \Exception(__('validation.custom.booking.already_exists'));
-        }
-
-
-            $now = now();
-            $isEarlyBird = false;
-            if ($advertisement->early_paid_price > 0) {
-                $isWithinDate = $advertisement->discount_expiry ? $now->lte($advertisement->discount_expiry) : true;
-                $hasEarlySeats = $advertisement->current_seats_taken < ($advertisement->early_paid_seats_limit ?? 999);
-                if ($isWithinDate && $hasEarlySeats) {
-                    $isEarlyBird = true;
-                }
+        if ($existingBooking) {
+            // إذا كان الحجز نشطاً (مسودة أو مؤكد)، نرفض التكرار
+            if (in_array($existingBooking->status, ['draft', 'confirmed', 'attended'])) {
+                throw new \Exception(__('validation.custom.booking.already_exists'));
             }
 
-            $originalPrice = $advertisement->price_before_discount ?? 0;
-            $finalPrice = $isEarlyBird
-                ? $advertisement->early_paid_price
-                : ($advertisement->price_after_discount ?? $originalPrice);
+            // إذا وصلنا هنا، يعني أن الحجز القديم حالته 'cancelled'
+            // سنقوم بتحديثه (إعادة إحيائه) بدلاً من إنشاء سجل جديد
+            return $this->updateExistingBooking($existingBooking, $advertisement);
+        }
 
+        // 3. إذا لم يوجد حجز سابق نهائياً، ننشئ واحداً جديداً
+        $pricing = $this->calculatePricing($advertisement);
 
         return Booking::create([
             'user_id'         => Auth::id(),
             'bookable_id'     => $data['bookable_id'],
-            'bookable_type'   => 'App\Models\Advertisement', // تأكد من الثبات هنا
-            'original_price'  => $originalPrice,
-            'discount_amount' => $originalPrice - $finalPrice,
-            'final_price'     => $finalPrice,
+            'bookable_type'   => 'App\Models\Advertisement',
+            'original_price'  => $pricing['original_price'],
+            'discount_amount' => $pricing['discount_amount'],
+            'final_price'     => $pricing['final_price'],
             'status'          => 'draft',
             'payment_status'  => 'pending',
-            'booking_type'    => $isEarlyBird ? 'early' : 'regular',
+            'booking_type'    => $pricing['booking_type'],
             'booking_date'    => now(),
         ]);
     });
+}
+
+/**
+ * دالة مساعدة لحساب السعر (لتجنب تكرار الكود)
+ */
+private function calculatePricing($advertisement): array
+{
+    $now = now();
+    $isEarlyBird = false;
+
+    if ($advertisement->early_paid_price > 0) {
+        $isWithinDate = $advertisement->discount_expiry ? $now->lte($advertisement->discount_expiry) : true;
+        $hasEarlySeats = $advertisement->current_seats_taken < ($advertisement->early_paid_seats_limit ?? 999);
+        if ($isWithinDate && $hasEarlySeats) {
+            $isEarlyBird = true;
+        }
+    }
+
+    $originalPrice = $advertisement->price_before_discount ?? 0;
+    $finalPrice = $isEarlyBird
+        ? $advertisement->early_paid_price
+        : ($advertisement->price_after_discount ?? $originalPrice);
+
+    return [
+        'original_price'  => $originalPrice,
+        'final_price'     => $finalPrice,
+        'discount_amount' => $originalPrice - $finalPrice,
+        'booking_type'    => $isEarlyBird ? 'early' : 'regular'
+    ];
+}
+
+/**
+ * دالة مساعدة لتحديث الحجز الملغي
+ */
+private function updateExistingBooking(Booking $booking, $advertisement): Booking
+{
+    $pricing = $this->calculatePricing($advertisement);
+
+    $booking->update([
+        'status'          => 'draft',
+        'payment_status'  => 'pending',
+        'original_price'  => $pricing['original_price'],
+        'discount_amount' => $pricing['discount_amount'],
+        'final_price'     => $pricing['final_price'],
+        'booking_type'    => $pricing['booking_type'],
+        'booking_date'    => now(), // إعادة ضبط تاريخ الحجز ليبدأ من جديد
+        'admin_notes'     => 'تم إعادة تفعيل الحجز بعد الإلغاء.'
+    ]);
+
+    return $booking->refresh();
 }
 
     /**

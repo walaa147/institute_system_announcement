@@ -93,7 +93,7 @@ class InstituteService
         // حساب وزن سرعة الرد: كلما قل الوقت زاد الوزن (بحد أقصى 20 نقطة تميز)
         $responseTimeWeight = 0;
         if ($institute->avg_response_time > 0) {
-            $responseTimeWeight = max(0, 50 - ($institute->avg_response_time / 5));
+            $responseTimeWeight = max(0, 100 - ($institute->avg_response_time));
         }
 
         // تحديث الحقل الحاكم للعرض
