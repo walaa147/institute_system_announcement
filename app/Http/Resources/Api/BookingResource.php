@@ -57,17 +57,18 @@ class BookingResource extends JsonResource
      * دالة مساعدة لجلب العنوان بناءً على نوع الموديل المحجوز
      */
     protected function getBookableTitle()
-    {
-        if (!$this->relationLoaded('bookable')) {
-            return null;
-        }
-
-        // حسب جدول الإعلانات الخاص بك، نستخدم title_ar أو title
-        return match ($this->bookable_type) {
-            'App\Models\Advertisement' => $this->bookable->title_ar ?? $this->bookable->title,
-            'App\Models\Course'        => $this->bookable->name_ar ?? $this->bookable->name,
-            'App\Models\Diploma'       => $this->bookable->title_ar ?? $this->bookable->title,
-            default                    => 'Unknown Item',
-        };
+{
+    // 1. التحقق من أن الكائن موجود فعلاً وليس نال
+    if (!$this->bookable) {
+        return 'العنصر غير موجود أو تم حذفه';
     }
+
+    // 2. استخدام match بشكل آمن مع ميزة null-safe operator (?)
+    return match ($this->bookable_type) {
+        'App\Models\Advertisement' => $this->bookable->title_ar ?? $this->bookable->title,
+        'App\Models\Course'        => $this->bookable->name_ar ?? $this->bookable->name,
+        'App\Models\Diploma'       => $this->bookable->title_ar ?? $this->bookable->title,
+        default                    => 'Unknown Item',
+    };
+}
 }

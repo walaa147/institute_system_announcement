@@ -158,7 +158,7 @@ Route::prefix('v1')->group(function () {
             Route::prefix('bookings')->controller(BookingController::class)->group(function () {
             Route::post('create', 'store');         // إنشاء حجز جديد (للطالب)
 
-            Route::post('cancel',  'cancel');
+            Route::post('{booking}/cancel', 'cancel');
             Route::post('{booking}/simulate-payment',  'simulatePayment');
         });
 

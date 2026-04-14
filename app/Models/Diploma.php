@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 class Diploma extends Model
 {
     use HasFactory;
@@ -81,4 +81,26 @@ public function waitingLists()
 {
     return $this->morphMany(WaitingList::class, 'bookable');
 }
+public function advertisements(): MorphMany
+    {
+        return $this->morphMany(Advertisement::class, 'advertisable');
+    }
+    protected static function booted()// هذا هو المكان المناسب لوضع اللوجيك الذي يتعامل مع تحديث الإعلانات المرتبطة بالدبلوم
+    {
+        static::updated(function ($diploma) {
+            // الحقول التي إذا تغيرت يجب تحديث الإعلان المرتبط بها
+            $relevantFields = ['name_ar', 'description_ar', 'total_cost', 'photo_path', 'duration'];
+
+            if ($diploma->wasChanged($relevantFields)) {
+                // تحديث كل الإعلانات المرتبطة بهذا الدبلوم
+                $diploma->advertisements()->update([
+                    'title_ar'              => $diploma->name_ar,
+                    'description_ar'        => $diploma->description_ar,
+                    'price_before_discount' => $diploma->total_cost, // ربط التكلفة بسعر الإعلان
+                    'image_path'            => $diploma->photo_path,
+                    'duration'              => $diploma->duration,
+                ]);
+            }
+        });
+    }
 }

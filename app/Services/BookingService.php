@@ -20,8 +20,9 @@ public function createBooking(array $data): Booking
     return DB::transaction(function () use ($data) {
 
         // 1. التحقق من وجود الإعلان وصلاحيته للحجز
-        $advertisement = Advertisement::find($data['bookable_id']);
-
+       $advertisement = Advertisement::where('id', $data['bookable_id'])
+            ->lockForUpdate()
+            ->first();
         if (!$advertisement) {
             throw new \Exception("الإعلان رقم ({$data['bookable_id']}) غير موجود في النظام.");
         }
