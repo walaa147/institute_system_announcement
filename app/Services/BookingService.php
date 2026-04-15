@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Models\Booking;
 use App\Models\Advertisement;
 use Illuminate\Support\Facades\DB;
-
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 
 class BookingService
@@ -27,7 +27,7 @@ public function createBooking(array $data): Booking
             throw new \Exception("الإعلان رقم ({$data['bookable_id']}) غير موجود في النظام.");
         }
         if ($advertisement->max_seats && $advertisement->current_seats_taken >= $advertisement->max_seats) {
-            throw new \Exception(__('validation.custom.booking.no_seats_available'));
+            throw new \Exception("FULL_MAX_SEATS");
         }
 
         if (!$advertisement->is_open_for_booking) {
@@ -151,6 +151,7 @@ public function updateStatus(Booking $booking, string $status, int $adminId): Bo
         // حالة الإلغاء: إذا كان مؤكداً، نحرر المقعد
         elseif ($status === 'cancelled' && $booking->status === 'confirmed') {
             $advertisement->decrement('current_seats_taken');
+            $this->processNextInWaitlist($advertisement);
             $booking->update(['status' => 'cancelled', 'payment_status' => 'refunded']);
         }
         else {
@@ -200,12 +201,14 @@ public function cancelByStudent(Booking $booking): Booking
             $advertisement->decrement('current_seats_taken');
         }
 
+
         // 4. تحديث بيانات الحجز
         $booking->update([
             'status' => 'cancelled',
             'admin_notes' => 'تم الإلغاء بواسطة الطالب في: ' . now()->format('Y-m-d H:i'),
             // إذا كان هناك نظام مالي معقد، يمكن تغيير حالة الدفع إلى 'refund_pending' هنا
         ]);
+        $this->processNextInWaitlist($advertisement);
 
         return $booking->refresh();
     });
@@ -222,4 +225,36 @@ public function cancelByStudent(Booking $booking): Booking
             $this->instituteService->refreshPriority($institute);
         }
     }
+ public function processNextInWaitlist($advertisement)
+{
+    // 1. التأكد أن الأوبجكت ليس نال
+    if (!$advertisement || !isset($advertisement->id)) {
+        Log::error("Waitlist Error: Advertisement object is null or has no ID");
+        return;
+    }
+
+    // 2. تنظيف اسم الكلاس من أي علامات مائلة إضافية لضمان مطابقة الداتابيز
+    $className = trim($advertisement->getMorphClass(), '\\');
+
+    // 3. البحث باستخدام استعلام صريح ونظيف
+    $next = \App\Models\WaitingList::where('bookable_id', $advertisement->id)
+        ->where('bookable_type', $className)
+        ->where('status', 'waiting')
+        ->orderBy('priority_order', 'asc')
+        ->first();
+
+    if ($next) {
+        // تحديث الحالة مباشرة في قاعدة البيانات
+        $updated = DB::table('waiting_lists')
+            ->where('id', $next->id)
+            ->update(['status' => 'notified']);
+
+        if ($updated) {
+            Log::info("Success: Status changed to notified for User: {$next->user_id}");
+        }
+    } else {
+        // هذا اللوج سيخبرك إذا كان المشكل في الـ ID أو النوع
+        Log::warning("No waiting record found for Ad ID: {$advertisement->id} and Type: {$className}");
+    }
+}
 }

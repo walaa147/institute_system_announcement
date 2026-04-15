@@ -26,6 +26,16 @@ class BookingController extends Controller
                 'data' => new BookingResource($booking->load(['bookable', 'user']))
             ], 201);
         } catch (\Exception $e) {
+            if($e->getMessage() === "FULL_MAX_SEATS") {
+                return response()->json([
+                'status' => false,
+                'code'   => 'WAITLIST_OPTION', // كود خاص للموبايل ليظهر زر "انضم للانتظار"
+                'message' => __('validation.custom.booking.no_seats_available'),
+                'bookable_id' => $request->bookable_id,
+                'bookable_type' => 'App\Models\Advertisement'
+            ], 200); // نرجع 200 لأنها ليست خطأ في السيرفر بل حالة منطقية
+        }
+
             return response()->json(['status' => false, 'message' => $e->getMessage()], 400);
         }
     }

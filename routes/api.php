@@ -12,7 +12,7 @@ use App\Http\Controllers\Api\LikeController;
 use App\Http\Controllers\Api\InstituteController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\BookingController;
-
+use App\Http\Controllers\Api\WaitingListController;
 use App\Http\Controllers\Api\FavoriteInstituteController;
 
 use Termwind\Components\Raw;
@@ -160,7 +160,9 @@ Route::prefix('v1')->group(function () {
 
             Route::post('{booking}/cancel', 'cancel');
             Route::post('{booking}/simulate-payment',  'simulatePayment');
+
         });
+        Route::post('waiting-list/join', [WaitingListController::class, 'join']);
 
 
 
