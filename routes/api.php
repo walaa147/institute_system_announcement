@@ -150,6 +150,11 @@ Route::prefix('v1')->group(function () {
 
             Route::get('show/{booking}', 'show');  // عرض تفاصيل حجز معين
         });
+        Route::prefix('waiting-list')->controller(WaitingListController::class)->group(function () {
+            Route::get('my-list', 'myWaitlist');
+             Route::post('join', 'join');
+                Route::get('show/{waitingList}', 'show'); //
+        });
               // بيانات المستخدم الشخصية
    Route::get('/user', function (Request $request) {
          return $request->user();
@@ -162,7 +167,7 @@ Route::prefix('v1')->group(function () {
             Route::post('{booking}/simulate-payment',  'simulatePayment');
 
         });
-        Route::post('waiting-list/join', [WaitingListController::class, 'join']);
+
 
 
 
@@ -213,8 +218,10 @@ Route::prefix('bookings')->controller(BookingController::class)->group(function 
             Route::post('toggle-status/{course}', 'toggleStatus');
              Route::post('index', 'index');
         });
+        Route::prefix('waiting-list')->controller(WaitingListController::class)->group(function () {
+            Route::get('index', 'index'); // عرض قائمة الانتظار لإعلان معين
         });
-
+      });
 
         //  مسارات الطلاب فقط Student
         Route::middleware(['is_student'])->group(function () {

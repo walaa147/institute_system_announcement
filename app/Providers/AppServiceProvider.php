@@ -10,6 +10,8 @@ use App\Models\Booking;
 use App\Policies\AdvertisementPolicy;
 use App\Policies\DepartmentPolicy;
 use App\Policies\BookingPolicy;
+use App\Policies\WaitingListPolicy;
+use App\Models\WaitingList;
 use Illuminate\Database\Eloquent\Relations\Relation;
 class AppServiceProvider extends ServiceProvider
 {
@@ -34,6 +36,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Department::class, DepartmentPolicy::class);
         Gate::policy(Advertisement::class,AdvertisementPolicy::class);
         Gate::policy(Booking::class, BookingPolicy::class);
+        Gate::policy(WaitingList::class, WaitingListPolicy::class);
         // تعريف أسماء مستعارة للموديلات في علاقات الـ Morph
 
     }}
