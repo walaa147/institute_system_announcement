@@ -58,7 +58,7 @@ class InstituteService
             if (isset($data['cover_photo'])&& $data['cover_photo'] instanceof UploadedFile) {
                 $data['cover_photo'] = $this->imageService->updateImage($data['cover_photo'], $institute->cover_photo, 'institutes/covers');
             }
-            if(isset($data['name_ar']) || isset($data['name_en'])) {
+            if((isset($data['name_ar']) || isset($data['name_en'])) && !$institute->slug) {
                 $nameForSlug = $data['name_en'] ?? $data['name_ar'] ?? $institute->name_ar;
                 $data['slug'] = Str::slug($nameForSlug) . '-' . Str::random(6); // تحديث السلاگ إذا تم تغيير الاسم
             }
@@ -75,6 +75,9 @@ class InstituteService
     public function delete(Institute $institute): bool
     {
         return DB::transaction(function () use ($institute) {
+            if ($institute->bookings()->whereIn('status', ['confirmed', 'pending'])->exists()) {
+             throw new \Exception(__('validation.custom.institute.has_active_bookings'));
+        }
            if ($institute->logo) {
                 $this->imageService->deleteImage($institute->logo);
             }

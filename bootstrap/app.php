@@ -23,6 +23,8 @@ return Application::configure(basePath: dirname(__DIR__))
         'is_secretary' => \App\Http\Middleware\CheckIsSecretary::class,
         'is_admin'     => \App\Http\Middleware\CheckIsSuperAdmin::class,
         'check_account_status' => \App\Http\Middleware\CheckAccountStatus::class,
+        'auth_optional' => \App\Http\Middleware\AuthenticateOptional::class,
+
     ]);
 })
     ->withExceptions(function (Exceptions $exceptions): void {

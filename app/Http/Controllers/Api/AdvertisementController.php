@@ -58,10 +58,23 @@ class AdvertisementController extends Controller
     }
 
     // يدويًا: إذا لم يكن هناك مستخدم (زائر) والإعلان غير مفعل -> ارفض
+   /** @var \App\Models\User|null $user */
     $user = auth('sanctum')->user();
+$isSuperAdmin = $user && $user->hasRole('super_admin');
+    $isOwner = $user && $user->institute_id === $ad->institute_id;
+
+    // --- المنطق الجديد لفحص حالة المعهد ---
+
+    // إذا كان المعهد معطلاً
+    if (!$ad->institute?->status) {
+        // لا يراه إلا السوبر آدمن أو سكرتير نفس المعهد
+        if (!$isSuperAdmin && !$isOwner) {
+            return $this->errorResponse(__('validation.custom.institute.institute_disabled'), 403);
+        }
+    }
 
     if (!$ad->is_active) {
-        if (!$user) {
+        if (!$isSuperAdmin && !$isOwner) {
              return $this->errorResponse('Unauthorized', 403);
         }
 

@@ -71,7 +71,11 @@ protected static function booted()
 
         // 1. إذا كان زائر أو مستخدم عادي (ليس أدمن/سكرتير) -> يرى المفعل فقط
         if (!$user || !($user instanceof \App\Models\User && $user->isStatusAdmin())) {
-            $builder->where('is_active', true)->where(function ($query) use ($now) {
+            $builder->where('is_active', true)
+            ->whereHas('institute', function ($query) {
+                    $query->where('status', true); // لا يظهر الإعلان إلا إذا المعهد نشط
+                })
+            ->where(function ($query) use ($now) {
                 $query->whereNull('published_at')->orWhere('published_at', '<=', $now);
             })->where(function ($query) use ($now) {
                 $query->whereNull('expired_at')->orWhere('expired_at', '>=', $now);
@@ -90,6 +94,9 @@ protected static function booted()
             $query->where('institute_id', $user->institute_id)
                   ->orWhere(function ($q) use ($now){
                         $q->where('is_active', true)
+                        ->whereHas('institute', function ($instQ) {
+                      $instQ->where('status', true); // لا يرى المعاهد الأخرى إلا إذا كانت نشطة
+                  })
                             ->where(function ($subQ) use ($now) {
                                 $subQ->whereNull('published_at')->orWhere('published_at', '<=', $now);
                             })->where(function ($subQ) use ($now) {

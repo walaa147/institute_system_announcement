@@ -127,15 +127,19 @@ Route::prefix('v1')->group(function () {
 
        Route::prefix('view')->group(function () {
 //  institute
-            Route::get('/institutes', [InstituteController::class, 'index']);
-            Route::get('/institutes/{institute}', [InstituteController::class, 'show']);
+Route::prefix('view')->middleware('auth_optional')->group(function () {
+    Route::get('/institutes', [InstituteController::class, 'index']);
+    Route::get('/institutes/{institute}', [InstituteController::class, 'show']);
+
+    // advertisements
+     Route::get('/advertisements', [AdvertisementController::class, 'index']);
+    Route::get('/advertisements/{advertisement}', [AdvertisementController::class, 'show']);
+
 // department
             Route::get('/departments', [DepartmentController::class, 'index']);
             Route::get('/departments/{department}', [DepartmentController::class, 'show']);
-//Advertisement
-            Route::get('/advertisements', [AdvertisementController::class, 'index']);
-            Route::get('/advertisements/{advertisement}', [AdvertisementController::class, 'show']);
 
+});
  // Courses
             Route::get('/courses', [CourseController::class, 'publicIndex']);
             Route::get('/courses/{course}', [CourseController::class, 'show']);

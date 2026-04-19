@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Institute;
 use App\Services\InstituteService;
-use App\Http\Requests\StoreInstituteRequest;
-use App\Http\Requests\UpdateInstituteRequest;
+use App\Http\Requests\Api\Admin\StoreInstituteRequest;
+use App\Http\Requests\Api\Admin\UpdateInstituteRequest;
 use App\Traits\ApiResponse;
 use App\Http\Resources\InstituteResource;
 
@@ -21,14 +21,24 @@ class InstituteController extends Controller
     public function __construct(protected InstituteService $service) {}
 
     public function index(Request $request): AnonymousResourceCollection
-    {  $userLat = $request->lat ?? $request->user_lat;
-    $userLng = $request->lng ?? $request->user_lng;
+    {
+        /** @var \App\Models\User $user */
         $user = auth('sanctum')->user();
-        $isSuperAdmin = ($user instanceof \App\Models\User) && $user->hasRole('super_admin');
+        $userLat = $request->lat ?? $request->user_lat;
+    $userLng = $request->lng ?? $request->user_lng;
+       $isSuperAdmin = $user && $user->hasRole('super_admin');
+    $isSecretary = $user && $user->isStatusAdmin();
 
+    $institutes = Institute::query()
+        ->when(!$isSuperAdmin, function ($query) use ($user, $isSecretary) {
+            return $query->where(function ($q) use ($user, $isSecretary) {
+                $q->active(); // المعاهد النشطة للجميع
 
-        $institutes = Institute::query()->when(!$isSuperAdmin, function ($query) {
-            return $query->active(); // إذا لم يكن المستخدم سوبر أدمن، نعرض فقط المعاهد النشطة
+                // إذا كان سكرتير، أظهر معهده أيضاً حتى لو غير نشط
+                if ($isSecretary) {
+                    $q->orWhere('id', $user->institute_id);
+                }
+            });
         }) // استخدام Scope المعاهد النشطة فقط
             ->withDistance($userLat, $userLng) // حساب المسافة إذا أرسل المستخدم موقعه
             ->orderBySmartPriority() // الترتيب الحاكم (الأولوية الذكية)
@@ -55,19 +65,26 @@ class InstituteController extends Controller
         }
     }
 
-    public function show($id): InstituteResource|JsonResponse
+    public function show($id, Request $request): InstituteResource|JsonResponse
     {
         $institute = Institute::with(['departments', 'courses', 'advertisements'])->find($id);
         if (!$institute) {
             return $this->errorResponse(__('validation.custom.institute.not_found'), 404);
         }
         // التحقق من حالة المعهد قبل العرض
+        /** @var \App\Models\User $user */
         $user = auth('sanctum')->user();
-        $isSuperAdmin = ($user instanceof \App\Models\User) && $user->hasRole('super_admin');
-        if (!$institute->status && !$isSuperAdmin) {
-        return $this->errorResponse(__('validation.custom.institute.institute_disabled'), 404);
-    }
 
+    // 1. هل هو سوبر أدمن؟
+    $isSuperAdmin = $user && $user->hasRole('super_admin');
+
+    // 2. هل هو سكرتير هذا المعهد تحديداً؟
+    $isStaffOfThisInstitute = $user && $user->isStatusAdmin() && $user->institute_id == $institute->id;
+
+    // المنطق الجديد: إذا كان المعهد معطلاً، اسمح فقط للسوبر أدمن أو سكرتير المعهد بالدخول
+    if (!$institute->status && !$isSuperAdmin && !$isStaffOfThisInstitute) {
+        return $this->errorResponse(__('validation.custom.institute.institute_disabled'), 403);
+    }
         $institute->loadCount(['departments', 'courses', 'advertisements']);
         return new InstituteResource($institute);
     }

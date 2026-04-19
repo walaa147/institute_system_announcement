@@ -39,7 +39,7 @@ class Institute extends Model
 
     ];*/
     protected $guarded = ['id'];
-    protected $appends = ['logo_url', 'cover_url'];
+
     //حساب الأولوية الذكية: أولاً حسب مستوى الأولوية، ثم حسب رصيد النقاط، وأخيراً حسب زمن الاستجابة
     public function scopeOrderBySmartPriority($query)
             {
