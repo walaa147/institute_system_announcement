@@ -23,12 +23,46 @@ class AdvertisementController extends Controller
     /**
      * عرض قائمة الإعلانات (تخضع للـ Global Scope تلقائياً)
      */
-    public function index(): JsonResponse
-    {
-        $ads = Advertisement::with($this->relations)->latest()->paginate(15);
-        return $this->successResponse(ApiAdvertisementResource::collection($ads),__('validation.custom.advertisement.fetched_success'));
+  public function index(): JsonResponse
+{
+    /** @var \App\Models\User|null $user */
+    $user = auth('sanctum')->user();
+
+    $query = Advertisement::with([
+        'advertisable', 'institute', 'creator',
+        'department' => function ($q) {
+            $q->withoutGlobalScopes();
+        }
+    ]);
+
+    // إذا كان المستخدم ليس سوبر أدمن
+    if (!$user || !$user->hasRole('super_admin')) {
+        $query->where(function ($q) use ($user) {
+            // أولاً: اعرض له كل إعلانات معهده (سواء القسم نشط أو لا)
+            if ($user && $user->institute_id) {
+                $q->where('institute_id', $user->institute_id);
+            }
+
+            // ثانياً: اعرض له إعلانات المعاهد الأخرى بشرط أن يكون القسم نشطاً
+            $q->orWhere(function ($sub) use ($user) {
+                $sub->where('is_active', true)
+                    ->whereHas('institute', fn($inst) => $inst->where('status', true))
+                    ->where(function ($depQ) {
+                        $depQ->whereNull('department_id')
+                             ->orWhereHas('department', fn($d) => $d->where('is_active', true));
+                    });
+
+                // إذا كان سكرتير، لا نريد تكرار إعلانات معهده هنا
+                if ($user && $user->institute_id) {
+                    $sub->where('institute_id', '!=', $user->institute_id);
+                }
+            });
+        });
     }
 
+    $ads = $query->latest()->paginate(15);
+    return $this->successResponse(ApiAdvertisementResource::collection($ads), __('validation.custom.advertisement.fetched_success'));
+}
     /**
      * تخزين إعلان جديد
      */
@@ -50,36 +84,41 @@ class AdvertisementController extends Controller
      */
     public function show($id): JsonResponse
 {
-    // جلب الإعلان بدون القيود الزمنية أو قيود الحالة
-    $ad = Advertisement::withoutGlobalScopes()->with($this->relations)->find($id);
+    $ad = Advertisement::withoutGlobalScopes()->with([
+        'advertisable', 'institute', 'creator',
+        'department' => function ($q) {
+            $q->withoutGlobalScopes();
+        }
+    ])->find($id);
 
     if (!$ad) {
         return $this->errorResponse(__('validation.custom.advertisement.not_found'), 404);
     }
 
-    // يدويًا: إذا لم يكن هناك مستخدم (زائر) والإعلان غير مفعل -> ارفض
-   /** @var \App\Models\User|null $user */
+    /** @var \App\Models\User|null $user */
     $user = auth('sanctum')->user();
-$isSuperAdmin = $user && $user->hasRole('super_admin');
-    $isOwner = $user && $user->institute_id === $ad->institute_id;
+    $isSuperAdmin = $user && $user->hasRole('super_admin');
+    $isOwner = $user && $user->institute_id === $ad->institute_id; // هل هو سكرتير نفس المعهد؟
 
-    // --- المنطق الجديد لفحص حالة المعهد ---
-
-    // إذا كان المعهد معطلاً
+    // 1. التحقق من حالة المعهد
     if (!$ad->institute?->status) {
-        // لا يراه إلا السوبر آدمن أو سكرتير نفس المعهد
         if (!$isSuperAdmin && !$isOwner) {
             return $this->errorResponse(__('validation.custom.institute.institute_disabled'), 403);
         }
     }
 
-    if (!$ad->is_active) {
+    // 2. التحقق من حالة القسم (التعديل الجوهري هنا)
+    if ($ad->department_id && !$ad->department?->is_active) {
+        // إذا لم يكن سوبر أدمن ولم يكن صاحب المعهد (حتى لو كان سكرتير معهد آخر) -> امنعه
         if (!$isSuperAdmin && !$isOwner) {
-             return $this->errorResponse('Unauthorized', 403);
+           return $this->errorResponse(__('validation.custom.department.department_disabled'), 403);
         }
+    }
 
-        // إذا كان موجود، نختبر الصلاحية عبر الـ Policy
-        if (Gate::forUser($user)->denies('view', $ad)) {
+    // 3. التحقق من حالة نشاط الإعلان نفسه
+    if (!$ad->is_active) {
+        // سكرتير معهد آخر لا يرى الإعلانات غير النشطة لمعاهد غيره
+        if (!$isSuperAdmin && !$isOwner) {
              return $this->errorResponse('Unauthorized', 403);
         }
     }

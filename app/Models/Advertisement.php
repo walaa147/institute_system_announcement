@@ -12,7 +12,8 @@ class Advertisement extends Model
     use SoftDeletes;
 
     protected $guarded = ['id'];
-  protected $casts = [
+
+    protected $casts = [
         'is_active'           => 'boolean',
         'is_open_for_booking' => 'boolean',
         'is_free'             => 'boolean',
@@ -26,85 +27,90 @@ class Advertisement extends Model
         'created_at'          => 'datetime',
         'updated_at'          => 'datetime',
     ];
-     protected $with = ['institute:id,name_ar,name_en','department:id,name_ar,name_en'];
-     protected $withCount = ['bookings','waitingLists']; // لجلب عدد الحجوزات وقوائم الانتظار تلقائياً
+
+    protected $with = ['institute:id,name_ar,name_en', 'department:id,name_ar,name_en'];
+    protected $withCount = ['bookings', 'waitingLists'];
 
     // العلاقة التي تجلب الدورة أو الدبلوم المرتبط
-   public function advertisable()
-{
-    return $this->morphTo();
-}
+    public function advertisable()
+    {
+        return $this->morphTo();
+    }
 
     public function institute()
     {
         return $this->belongsTo(Institute::class);
     }
 
-   public function bookings()
-{
-    return $this->morphMany(Booking::class, 'bookable');
-}
+    public function bookings()
+    {
+        return $this->morphMany(Booking::class, 'bookable');
+    }
 
-public function waitingLists()
-{
-    return $this->morphMany(WaitingList::class, 'bookable');
-}
-public function department()
+    public function waitingLists()
+    {
+        return $this->morphMany(WaitingList::class, 'bookable');
+    }
+
+    public function department()
     {
         return $this->belongsTo(Department::class);
     }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
     public function updater()
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
 
+    protected static function booted()
+    {
+        static::addGlobalScope('active_access', function (Builder $builder) {
+            /** @var \App\Models\User|null $user */
+            $user = auth('sanctum')->user();
+            $now = Carbon::now();
 
-protected static function booted()
-{
-    static::addGlobalScope('active_access', function (Builder $builder) {
-        $user = auth('sanctum')->user();
-        $now = Carbon::now();
+            // 1. إذا كان زائر أو مستخدم عادي (ليس أدمن/سكرتير) -> يرى المفعل فقط
+            if (!$user || !($user instanceof \App\Models\User && $user->isStatusAdmin())) {
+                $builder->where('is_active', true)
+                    ->whereHas('institute', function ($query) {
+                        $query->where('status', true);
+                    })
+                    ->where(function ($query) use ($now) {
+                        $query->whereNull('published_at')->orWhere('published_at', '<=', $now);
+                    })
+                    ->where(function ($query) use ($now) {
+                        $query->whereNull('expired_at')->orWhere('expired_at', '>=', $now);
+                    });
+                return;
+            }
 
-        // 1. إذا كان زائر أو مستخدم عادي (ليس أدمن/سكرتير) -> يرى المفعل فقط
-        if (!$user || !($user instanceof \App\Models\User && $user->isStatusAdmin())) {
-            $builder->where('is_active', true)
-            ->whereHas('institute', function ($query) {
-                    $query->where('status', true); // لا يظهر الإعلان إلا إذا المعهد نشط
-                })
-            ->where(function ($query) use ($now) {
-                $query->whereNull('published_at')->orWhere('published_at', '<=', $now);
-            })->where(function ($query) use ($now) {
-                $query->whereNull('expired_at')->orWhere('expired_at', '>=', $now);
-            });
-            return;
-        }
+            // 2. إذا كان "سوبر أدمن" -> يرى كل شيء في كل المعاهد
+            if ($user->hasRole('super_admin')) {
+                return;
+            }
 
-        // 2. إذا كان "سوبر أدمن" -> يرى كل شيء في كل المعاهد
-        if ($user->hasRole('super_admin')) {
-            return;
-        }
-
-        // 3. المنطق المشترك للسكرتير/أدمن المعهد:
-        // يرى (كل بيانات معهده) أَوْ (البيانات المفعلة في المعاهد الأخرى)
-        $builder->where(function ($query) use ($user,$now) {
-            $query->where('institute_id', $user->institute_id)
-                  ->orWhere(function ($q) use ($now){
+            // 3. المنطق المشترك للسكرتير/أدمن المعهد:
+            // يرى (كل بيانات معهده) أَوْ (البيانات المفعلة في المعاهد الأخرى)
+            $builder->where(function ($query) use ($user, $now) {
+                $query->where('institute_id', $user->institute_id)
+                    ->orWhere(function ($q) use ($now) {
                         $q->where('is_active', true)
-                        ->whereHas('institute', function ($instQ) {
-                      $instQ->where('status', true); // لا يرى المعاهد الأخرى إلا إذا كانت نشطة
-                  })
+                            ->whereHas('institute', function ($instQ) {
+                                $instQ->where('status', true);
+                            })
                             ->where(function ($subQ) use ($now) {
                                 $subQ->whereNull('published_at')->orWhere('published_at', '<=', $now);
-                            })->where(function ($subQ) use ($now) {
+                            })
+                            ->where(function ($subQ) use ($now) {
                                 $subQ->whereNull('expired_at')->orWhere('expired_at', '>=', $now);
                             });
                     });
-
+            });
         });
-    });
-}
+    }
 }
