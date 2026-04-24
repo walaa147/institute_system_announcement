@@ -22,8 +22,10 @@ class StoreDiplomaRequest extends FormRequest
             'is_open' => 'sometimes|boolean',
             'is_active' => 'sometimes|boolean',
             // التحقق من أن الكورسات المرسلة موجودة فعلياً في القاعدة
-            'course_ids' => 'required|array|min:1',
-            'course_ids.*' => 'exists:courses,id',
+           // 'course_ids' => 'required|array|min:1',
+            //'course_ids.*' => 'exists:courses,id',
+            'course_ids' => 'nullable|array',
+            'course_ids.*' => 'exists:courses,id'
         ];
     }
 }
