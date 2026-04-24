@@ -40,8 +40,10 @@ class UpdateDiplomaRequest extends FormRequest
             'is_active' => 'sometimes|boolean',
 
             // في التحديث، قد لا يرغب المستخدم في تغيير قائمة الكورسات
-            'course_ids' => 'sometimes|array|min:1',
-            'course_ids.*' => 'exists:courses,id',
+           // 'course_ids' => 'sometimes|array|min:1',
+            //'course_ids.*' => 'exists:courses,id',
+            'course_ids' => 'nullable|array',
+            'course_ids.*' => 'exists:courses,id'
         ];
     }
 }
