@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Resources;
-use Illuminate\Support\Facades\Auth;
+
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class DiplomaResource extends JsonResource
@@ -11,31 +11,52 @@ class DiplomaResource extends JsonResource
         return [
             'id' => $this->id,
             'code' => $this->code,
+            'slug' => $this->slug,
+
+            'name_ar' => $this->name_ar,
+            'name_en' => $this->name_en,
             'title_ar' => $this->title_ar,
             'title_en' => $this->title_en,
+
             'description_ar' => $this->description_ar,
             'description_en' => $this->description_en,
-            'total_cost' => (float) $this->total_cost,
-            'image_url' => $this->photo_path ? url('storage/' . $this->photo_path) : null,
-            'is_open' => $this->is_open,
-            'is_active' =>$this->is_active,
-// حقول المفضلة الجديدة
-'likes_count' => $this->whenLoaded('likes', function () {
-    // استخدم likes_count إذا كنت تستخدم withCount
-    return $this->likes_count ?? $this->likes->count();
-}),
-'is_liked' => $this->when(Auth::check(), function () {
-    // تحقق ما إذا كان المستخدم الحالي قد وضعها في المفضلة
-    return $this->likes->contains('user_id', Auth::id());
-}),
-            // بيانات المعهد
-            'institute_name' => $this->institute?->name_ar,
 
-            // قائمة الكورسات داخل الدبلوم
-            'courses' => CourseResource::collection($this->whenLoaded('courses')),
+            'total_cost' => (float) $this->total_cost,
+
+            'image_url' => $this->photo_url,
+
+            'is_active' => $this->is_active,
+            'is_available' => $this->is_available,
+
+            'duration' => $this->duration,
+            'start_date' => $this->start_date,
+            'end_date' => $this->end_date,
+
+            'like_count' => $this->likes_count ?? 0,
+
+            'department' => $this->whenLoaded('department', function () {
+                return [
+                    'id' => $this->department->id,
+                    'name_ar' => $this->department->name_ar,
+                ];
+            }),
+
+            'institute' => $this->whenLoaded('institute', function () {
+                return [
+                    'id' => $this->institute->id,
+                    'name_ar' => $this->institute->name_ar,
+                ];
+            }),
+
+            'courses' => CourseResource::collection(
+                $this->whenLoaded('courses')
+            ),
 
             'created_by_name' => $this->creator?->name_ar ?? 'غير معروف',
-            'created_at' => $this->created_at->format('Y-m-d H:i:s'),
+            'updated_by_name' => $this->updater?->name_ar ?? 'لم يتم التعديل',
+
+            'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
+            'updated_at' => $this->updated_at?->format('Y-m-d H:i:s'),
         ];
     }
 }
