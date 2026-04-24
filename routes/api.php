@@ -108,7 +108,25 @@ Route::any('{any}', function () {
 })->where('any', '.*');
 */
 
+Route::prefix('v1')->group(function () {
 
+    // عرض بدون تسجيل
+    Route::get('diplomas', [DiplomaController::class, 'index']);
+    Route::get('diplomas/{diploma}', [DiplomaController::class, 'show']);
+
+    // يحتاج تسجيل
+    Route::middleware('auth:sanctum')->group(function () {
+
+        Route::post('diplomas', [DiplomaController::class, 'store']);
+        Route::put('diplomas/{diploma}', [DiplomaController::class, 'update']);
+        Route::delete('diplomas/{diploma}', [DiplomaController::class, 'destroy']);
+
+        Route::post('diplomas/{diploma}/courses', [DiplomaController::class, 'attachCourses']);
+        Route::post('diplomas/{diploma}/toggle', [DiplomaController::class, 'toggle']);
+
+    });
+
+});
 
 
 
