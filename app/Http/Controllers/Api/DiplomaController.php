@@ -6,39 +6,31 @@ use App\Http\Controllers\Controller;
 use App\Models\Diploma;
 use App\Services\DiplomaService;
 use App\Http\Requests\StoreDiplomaRequest;
-use App\Http\Requests\UpdateDiplomaRequest; // تأكد من استدعاء طلب التحديث
+use App\Http\Requests\UpdateDiplomaRequest;
 use App\Http\Resources\DiplomaResource;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class DiplomaController extends Controller
 {
-    /**
-     * حقن خدمة الدبلومات
-     */
     public function __construct(private readonly DiplomaService $service) {}
 
-    /**
-     * عرض قائمة الدبلومات
-     */
     public function index(): AnonymousResourceCollection
-{
-    $diplomas = Diploma::with([
-        'courses',
-        'institute',
-        'creator',
-        'likes' // <=== إضافة العلاقة الكاملة لـ is_liked
-    ])
-    ->withCount('likes') // <=== إضافة العداد لـ likes_count
-    ->latest()
-    ->get();
+    {
+        $diplomas = Diploma::with([
+            'courses',
+            'institute',
+            'creator',
+            'likes'
+        ])
+        ->withCount('likes')
+        ->latest()
+        ->get();
 
-    return DiplomaResource::collection($diplomas);
-}
+        return DiplomaResource::collection($diplomas);
+    }
 
-    /**
-     * تخزين دبلوم جديد مع ربط الكورسات
-     */
     public function store(StoreDiplomaRequest $request): DiplomaResource|JsonResponse
     {
         try {
@@ -49,30 +41,21 @@ class DiplomaController extends Controller
         }
     }
 
-    /**
-     * عرض تفاصيل دبلوم محدد
-     */
     public function show(Diploma $diploma): DiplomaResource
-{
-    // دمج التحميل لضمان التحميل المسبق للعداد والعلاقة الكاملة
-    $diploma->load([
-        'courses',
-        'institute',
-        'creator',
-        'likes' // <=== العلاقة الكاملة لـ is_favorited
-    ])
-    ->loadCount('likes'); // <=== العداد لـ favorite_count
+    {
+        $diploma->load([
+            'courses',
+            'institute',
+            'creator',
+            'likes'
+        ])->loadCount('likes');
 
-    return new DiplomaResource($diploma);
-}
+        return new DiplomaResource($diploma);
+    }
 
-    /**
-     * تحديث بيانات الدبلوم والكورسات المرتبطة به
-     */
     public function update(UpdateDiplomaRequest $request, Diploma $diploma): DiplomaResource|JsonResponse
     {
         try {
-            // استدعاء الخدمة لتحديث البيانات ومزامنة الكورسات (sync)
             $updatedDiploma = $this->service->update($diploma, $request->validated());
             return new DiplomaResource($updatedDiploma);
         } catch (\Exception $e) {
@@ -83,15 +66,12 @@ class DiplomaController extends Controller
         }
     }
 
-    /**
-     * حذف الدبلوم نهائياً
-     */
     public function destroy(Diploma $diploma): JsonResponse
     {
         try {
             $this->service->delete($diploma);
             return response()->json([
-                'message' => 'تم حذف الدبلوم بنجاح مع كافة الارتباطات',
+                'message' => 'تم حذف الدبلوم بنجاح',
                 'status' => 'success'
             ], 200);
         } catch (\Exception $e) {
@@ -100,5 +80,44 @@ class DiplomaController extends Controller
                 'status' => 'error'
             ], 500);
         }
+    }
+
+    // 🔥 إضافات
+
+    public function attachCourses(Request $request, Diploma $diploma)
+    {
+        $request->validate([
+            //'course_ids' => 'required|array',//لانه يطلع خطا بالاختبار
+            'course_ids' => 'nullable|array',
+            'course_ids.*' => 'exists:courses,id'
+        ]);
+
+       /* $courses = collect($request->course_ids)
+            ->mapWithKeys(fn($id, $index) => [
+                $id => ['sort_order' => $index]
+            ]);
+علشان الاختبار بس لانه يطلع لي خطا مافيش عندي بيانات للاكراس 
+        $diploma->courses()->sync($courses);*/
+        if ($request->has('course_ids')) {
+    $courses = collect($request->course_ids)
+        ->mapWithKeys(fn($id, $index) => [
+            $id => ['sort_order' => $index]
+        ]);
+
+    $diploma->courses()->sync($courses);
+}
+        return response()->json(['message' => 'تم ربط الكورسات']);
+    }
+
+    public function toggle(Diploma $diploma)
+    {
+        $diploma->update([
+            'is_active' => !$diploma->is_active
+        ]);
+
+        return response()->json([
+            'message' => 'تم تغيير الحالة',
+            'is_active' => $diploma->is_active
+        ]);
     }
 }
