@@ -27,8 +27,8 @@ class StoreInstituteRequest extends ApiBaseRequest
             'points_balance'  => ['nullable', 'integer', 'min:0'],
             'avg_response_time'=>'nullable|numeric|min:0', // حماية من أوقات استجابة سالبة
 
-'lat'             => ['nullable', 'numeric', 'between:-90,90'], // حماية إحداثيات جغرافية صحيحة
-'lng'             => ['nullable', 'numeric', 'between:-180,180'],
+'lat'=> ['nullable', 'numeric', 'between:-90,90'], // حماية إحداثيات جغرافية صحيحة
+'lng' => ['nullable', 'numeric', 'between:-180,180'],
 
             'priority_level' => ['nullable', 'integer', 'min:0'], // حماية من مستويات أولوية سالبة
         ];

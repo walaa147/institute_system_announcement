@@ -165,6 +165,30 @@ public function cancel($id)
             'message' => __('validation.custom.booking.payment_authorized'),
             'data'    => new BookingResource($authorizedBooking)
         ]);
-    }
+        }
+//     }
+// public function updateStatus(UpdateBookingStatusRequest $request, Booking $booking)
+// {
+//     // تحميل العلاقة فوراً لضمان وجود البيانات للـ Policy
+//     $booking->loadMissing('bookable');
+
+//     // الآن الفحص سيكون دقيقاً
+//     Gate::authorize('updateStatus', $booking);
+
+//     try {
+//         // تنفيذ التحديث عبر الخدمة
+//         $updatedBooking = $this->bookingService->updateStatus($booking, $request->status, Auth::id());
+
+//         return response()->json([
+//             'status' => true,
+//             'message' => __('validation.custom.booking.status_updated_success'),
+//             'data' => new BookingResource($updatedBooking)
+//         ]);
+//     } catch (\Exception $e) {
+//         return response()->json(['status' => false, 'message' => $e->getMessage()], 400);
+//     }
+// }
+// }
+
 
 }

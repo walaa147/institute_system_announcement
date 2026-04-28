@@ -184,9 +184,11 @@ Route::post('/update-fcm-token', 'updateFcmToken');
     Route::middleware(['is_admin'])->group(function () { // سننشئ هذا الميدلوير أو نستخدم الفحص المباشر
         Route::prefix('institutes')->controller(InstituteController::class)->group(function () {
             Route::post('store', 'store');
-            Route::post('update/{institute}', 'update');
+
             Route::delete('destroy/{institute}', 'destroy');
             Route::post('toggle-status/{institute}', 'toggleStatus');
+            Route::post('purchase-points/{institute}', 'purchasePoints');
+            Route::post('update-commission-rate/{institute}', 'updateCommissionRate');
         });
         Route::prefix('secretaries')->controller(SecretaryController::class)->group(function () {
             Route::get('show', 'index');
@@ -211,6 +213,7 @@ Route::post('/update-fcm-token', 'updateFcmToken');
             Route::delete('destroy/{advertisement}', 'destroy');
             Route::post('toggle-status/{advertisement}', 'toggleStatus');
         });
+        Route::post('update/{institute}', [InstituteController::class, 'update']);
 Route::prefix('bookings')->controller(BookingController::class)->group(function () {
                 Route::post('{booking}/status', 'updateStatus'); // تأكيد، إلغاء، أو تسجيل حضور
             });

@@ -9,6 +9,7 @@ use App\Http\Requests\Api\Admin\StoreInstituteRequest;
 use App\Http\Requests\Api\Admin\UpdateInstituteRequest;
 use App\Traits\ApiResponse;
 use App\Http\Resources\InstituteResource;
+use Illuminate\Support\Facades\Gate;
 
 use Illuminate\Http\JsonResponse;
 
@@ -89,34 +90,50 @@ class InstituteController extends Controller
         return new InstituteResource($institute);
     }
 
+// ... داخل InstituteController ...
 
-    public function update(UpdateInstituteRequest $request, $id): InstituteResource|JsonResponse
-    {
-        $institute = Institute::find($id);
-        if (!$institute) {
-            return $this->errorResponse(__('validation.custom.institute.not_found'), 404);
-        }
-        try {
-            $updated = $this->service->update($institute, $request->validated());
-            return $this->successResponse(new InstituteResource($updated), __('validation.custom.institute.updated_success'));
-        } catch (\Exception $e) {
-            return $this->errorResponse(__('validation.custom.institute.update_failed') , 500);
-        }
+public function update(UpdateInstituteRequest $request, $id): JsonResponse
+{
+    $institute = Institute::find($id);
+    if (!$institute) {
+        return $this->errorResponse(__('validation.custom.institute.not_found'), 404);
     }
 
-    public function destroy($id): JsonResponse
-    {
-        $institute = Institute::find($id);
-        if (!$institute) {
-            return $this->errorResponse(__('validation.custom.institute.not_found'), 404);
-        }
-        try {
-            $this->service->delete($institute);
-            return $this->successResponse(null, __('validation.custom.institute.deleted_success'));
-        } catch (\Exception $e) {
-            return $this->errorResponse(__('validation.custom.institute.delete_failed'), 500);
-        }
+    // فحص السياسة: سيعرض الرسالة المخصصة من الـ Policy عند الرفض
+    Gate::authorize('update', $institute);
+
+    try {
+        // نمرر البيانات التي تم التحقق منها (والتي قمنا بتصفيتها في الـ Request للسكرتير)
+        $updated = $this->service->update($institute, $request->validated());
+
+        return $this->successResponse(
+            new InstituteResource($updated),
+            __('validation.custom.institute.updated_success')
+        );
+    } catch (\Exception $e) {
+        // إرجاع رسالة الخطأ الفعلية إذا حدث خطأ في السيرفس
+        return $this->errorResponse($e->getMessage(), 500);
     }
+}
+
+public function destroy($id): JsonResponse
+{
+    $institute = Institute::find($id);
+    if (!$institute) {
+        return $this->errorResponse(__('validation.custom.institute.not_found'), 404);
+    }
+
+    // فحص السياسة: السوبر أدمن فقط من يملك الصلاحية
+    Gate::authorize('delete', $institute);
+
+    try {
+        $this->service->delete($institute);
+        return $this->successResponse(null, __('validation.custom.institute.deleted_success'));
+    } catch (\Exception $e) {
+        // في حال كان المعهد مرتبطاً بحجوزات نشطة، ستظهر الرسالة من السيرفس هنا
+        return $this->errorResponse($e->getMessage(), 400);
+    }
+}
     /**
  * تفعيل أو تعطيل المعهد
  */
@@ -137,6 +154,33 @@ public function toggleStatus($id): JsonResponse
         return $this->successResponse(new InstituteResource($updated), $message);
     } catch (\Exception $e) {
         return $this->errorResponse(__('validation.custom.institute.status_update_failed'), 500);
+    }
+}
+// FinanceController أو داخل InstituteController
+public function purchasePoints(Request $request, $id)
+{
+    $request->validate(['points' => 'required|integer|min:1']);
+    $institute = Institute::findOrFail($id);
+
+    // استدعاء السيرفس
+    $updatedInstitute = $this->service->addPoints($institute, $request->points);
+
+    return response()->json([
+        'message' => __('validation.custom.institute.points_purchased_success'),
+        'balance' => $updatedInstitute->points_balance,
+        'priority' => $updatedInstitute->priority_level
+    ]);
+}
+public function updateCommissionRate(Request $request, $id): JsonResponse
+{
+    $request->validate(['commission_rate' => 'required|numeric|between:0,100']);
+    $institute = Institute::findOrFail($id);
+
+    try {
+        $updatedInstitute = $this->service->updateCommissionRate($institute, $request->commission_rate);
+        return $this->successResponse(new InstituteResource($updatedInstitute), __('validation.custom.institute.commission_updated_success'));
+    } catch (\Exception $e) {
+        return $this->errorResponse(__('validation.custom.institute.commission_update_failed'), 500);
     }
 }
 }

@@ -35,6 +35,10 @@ class InstituteResource extends JsonResource
             'phone'       => $this->phone,
             'email'       => $this->email,
             'website'     => $this->website,
+            // 'is_favorite' => $this->when($user, function () use ($user) {
+            //     // تحقق إذا كان المستخدم قد أضاف هذا المعهد إلى المفضلة
+            //     return $user->favoriteInstitutes()->where('institute_id', $this->id)->exists();
+            // }),
             // روابط الصور (توليد URL كامل إذا كانت الصورة موجودة)
              'logo_url'    => $this->logo ? url('storage/' . $this->logo) : null,
              'cover_photo_url' => $this->cover_photo ? url('storage/' . $this->cover_photo) : null,
