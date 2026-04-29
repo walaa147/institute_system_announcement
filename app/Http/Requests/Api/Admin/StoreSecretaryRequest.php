@@ -4,7 +4,7 @@ namespace App\Http\Requests\Api\Admin;
 
 use Illuminate\Foundation\Http\FormRequest;
 use App\Http\Requests\Api\ApiBaseRequest;
-
+use Illuminate\Validation\Rule;
 class StoreSecretaryRequest extends ApiBaseRequest
 {
     public function authorize(): bool
@@ -22,7 +22,16 @@ class StoreSecretaryRequest extends ApiBaseRequest
             'name'         => ['required', 'string', 'max:255'],
             'email'        => ['required', 'email', 'unique:users,email'],
             'password'     => ['required', 'string', 'min:8', 'confirmed'], // يجب إرسال password_confirmation
-            'institute_id' => ['required', 'integer', 'exists:institutes,id'], // حماية: المعهد يجب أن يكون مسجلاً بالنظام
+            'institute_id' => [
+            'required',
+            'integer',
+            Rule::exists('institutes', 'id')->where(function ($query) {
+                // شرط 1: ألا يكون المعهد محذوفاً (هذا يتعامل مع SoftDeletes)
+                $query->whereNull('deleted_at')
+                // شرط 2: (اختياري) أن يكون المعهد نشطاً
+                      ->where('status', true);
+            }),
+        ],
         ];
     }
 }

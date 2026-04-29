@@ -137,6 +137,8 @@ return [
     'updated_success' => 'تم تحديث بيانات ملفك الشخصي بنجاح.',
     'update_failed' => 'حدث خطأ أثناء تحديث بيانات ملفك الشخصي، يرجى المحاولة لاحقاً.',
     'fcm_token_updated' => 'تم تحديث توكن الإشعارات بنجاح.',
+    'account_deleted_success' => 'تم حذف حسابك بنجاح.',
+    'secretary_delete_forbidden' => 'عذراً، لا يمكن للسكرتارية حذف حساباتهم بأنفسهم.',
 ],
 'department' => [
     'fetched_success' => 'تم جلب بيانات الأقسام بنجاح.',

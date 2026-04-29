@@ -145,7 +145,7 @@ Route::prefix('view')->middleware('auth_optional')->group(function () {
             Route::get('/courses/{course}', [CourseController::class, 'show']);
         });
         // المسارات المحمية (لا يمكن الدخول لها إلا بتوكن صالح)
-        Route::middleware('auth:sanctum')->group(function () {
+        Route::middleware(['auth:sanctum', 'check.active'])->group(function () {
             Route::post('logout', [AuthController::class, 'logout']);
             Route::post('courses/toggle-like/{id}', [CourseController::class, 'toggleLike']);
 
@@ -179,6 +179,7 @@ Route::prefix('profile')->controller(ProfileController::class   )->group(functio
   Route::get('/show', 'show');
 Route::post('/update', 'update');
 Route::post('/update-fcm-token', 'updateFcmToken');
+Route::delete('/destroy-account', 'destroyAccount')->middleware('role:student');
     });
     // --- مسارات مدير النظام فقط (Super Admin) ---
     Route::middleware(['is_admin'])->group(function () { // سننشئ هذا الميدلوير أو نستخدم الفحص المباشر

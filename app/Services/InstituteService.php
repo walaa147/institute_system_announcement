@@ -83,21 +83,46 @@ if (!array_key_exists('lng', $data) || $data['lng'] === null) {
         });
     }
 
-    public function delete(Institute $institute): bool
-    {
-        return DB::transaction(function () use ($institute) {
-            if ($institute->bookings()->whereIn('status', ['confirmed', 'pending'])->exists()) {
-             throw new \Exception(__('validation.custom.institute.has_active_bookings'));
+  public function delete(Institute $institute): bool
+{
+    return DB::transaction(function () use ($institute) {
+        // 1. التحقق من الحجوزات النشطة (كودك الأصلي - ممتاز)
+        if ($institute->bookings()->whereIn('status', ['confirmed', 'pending'])->exists()) {
+            throw new \Exception(__('validation.custom.institute.has_active_bookings'));
         }
-           if ($institute->logo) {
-                $this->imageService->deleteImage($institute->logo);
-            }
-            if ($institute->cover_photo) {
-                $this->imageService->deleteImage($institute->cover_photo);
-            }
-            return $institute->delete();
-        });
-    }
+
+        // 2. التعامل مع السكرتارية (الإضافة الجديدة)
+        // جلب معرفات المستخدمين التابعين للمعهد
+        $userIds = \App\Models\User::where('institute_id', $institute->id)->pluck('id');
+
+        if ($userIds->isNotEmpty()) {
+            // تعطيل الحسابات
+            \App\Models\User::whereIn('id', $userIds)->update(['is_active' => false]);
+
+            // طرد السكرتارية من النظام فوراً بإبطال التوكنات
+            DB::table('personal_access_tokens')
+                ->where('tokenable_type', \App\Models\User::class)
+                ->whereIn('tokenable_id', $userIds)
+                ->delete();
+        }
+
+        // 3. تنظيف الصور (كودك الأصلي - ممتاز)
+        if ($institute->logo) {
+            $this->imageService->deleteImage($institute->logo);
+        }
+        if ($institute->cover_photo) {
+            $this->imageService->deleteImage($institute->cover_photo);
+        }
+        $institute->update([
+            'email' => 'deleted_' . now()->timestamp . '_' . $institute->email,
+            'code'  => 'old_' . now()->timestamp . '_' . $institute->code,
+            'status' => 0 // تعطيله بالمرة
+        ]);
+
+        // 4. الحذف الناعم للمعهد
+        return $institute->delete();
+    });
+}
     // دالة لتحديث الأولوية الذكية بناءً على النقاط وسرعة الرد
     public function refreshPriority(Institute $institute): void
     {

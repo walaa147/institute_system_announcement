@@ -8,6 +8,8 @@ use App\Http\Resources\Api\UserResource;
 use App\Services\ProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class ProfileController extends Controller
 {
@@ -66,4 +68,25 @@ class ProfileController extends Controller
             'message' => __('validation.custom.profile.fcm_token_updated'),
         ]);
     }
+public function destroyAccount()
+{
+    /** @var \App\Models\User $user */
+    $user = Auth::user();
+
+    // منع السكرتير من حذف حسابه بنفسه (منطق حماية)
+    if ($user->hasRole('secretary')) {
+        return response()->json([
+            'status' => false,
+            'message' => __('validation.custom.profile.secretary_delete_forbidden')
+        ], 403);
+    }
+
+    // استدعاء الخدمة لتنفيذ عملية الحذف
+    $this->profileService->deleteAccount($user);
+
+    return response()->json([
+        'status' => true,
+        'message' => __('validation.custom.profile.account_deleted_success')
+    ]);
+}
 }

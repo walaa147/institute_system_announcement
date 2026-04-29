@@ -27,6 +27,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
     ]);
 })
+->withMiddleware(function (Middleware $middleware) {
+    $middleware->alias([
+        'check.active' => \App\Http\Middleware\CheckActiveStatus::class,
+    ]);
+})
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();
