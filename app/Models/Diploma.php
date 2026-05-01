@@ -9,15 +9,31 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Str;
+
 class Diploma extends Model
 {
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'code', 'slug', 'name_ar', 'name_en', 'title_ar', 'title_en',
-        'description_ar', 'description_en', 'total_cost', 'photo_path',
-        'duration', 'start_date', 'end_date', 'is_active', 'is_available',
-        'institute_id', 'department_id', 'created_by', 'updated_by',
+        'code',
+        'slug',
+        'name_ar',
+        'name_en',
+        'title_ar',
+        'title_en',
+        'description_ar',
+        'description_en',
+        'total_cost',
+        'photo_path',
+        'duration',
+        'start_date',
+        'end_date',
+        'is_active',
+        'is_available',
+        'institute_id',
+        'department_id',
+        'created_by',
+        'updated_by',
     ];
 
     protected $casts = [
@@ -27,16 +43,36 @@ class Diploma extends Model
         'start_date' => 'date',
         'end_date' => 'date',
     ];
+
+    /*
+    |--------------------------------------------
+    | AUTO GENERATE (slug + code)
+    |--------------------------------------------
+    */
     protected static function boot()
     {
         parent::boot();
 
         static::creating(function ($diploma) {
+
+            // slug تلقائي
             if (empty($diploma->slug)) {
-                $diploma->slug = Str::slug($diploma->title_ar) . '-' . time();
+                $base = $diploma->title_ar ?? $diploma->title_en ?? 'diploma';
+                $diploma->slug = Str::slug($base) . '-' . time();
+            }
+
+            // code تلقائي
+            if (empty($diploma->code)) {
+                $diploma->code = 'DIP-' . rand(1000, 9999);
             }
         });
     }
+
+    /*
+    |--------------------------------------------
+    | RELATIONS
+    |--------------------------------------------
+    */
 
     public function courses(): BelongsToMany
     {
@@ -81,10 +117,24 @@ class Diploma extends Model
         return $this->morphMany(WaitingList::class, 'bookable');
     }
 
+    /*
+    |--------------------------------------------
+    | ACCESSORS
+    |--------------------------------------------
+    */
+
     public function getPhotoUrlAttribute(): ?string
     {
-        return $this->photo_path ? asset('storage/' . $this->photo_path) : null;
+        return $this->photo_path
+            ? asset('storage/' . $this->photo_path)
+            : null;
     }
+
+    /*
+    |--------------------------------------------
+    | SCOPES
+    |--------------------------------------------
+    */
 
     public function scopeActive($query)
     {
