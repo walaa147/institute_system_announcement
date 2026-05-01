@@ -34,7 +34,6 @@ return new class extends Migration
          $table->string('image_path')->nullable();
         $table->string('location')->nullable();
 
-
 // حقول الأسعار والخصومات
         $table->decimal('price_before_discount', 10, 2)->nullable()->default(0);
         $table->decimal('price_after_discount', 10, 2)->nullable()->default(0);
@@ -47,7 +46,6 @@ return new class extends Migration
 
 // حقول المقاعد والحجز
          $table->integer('early_paid_seats_limit')->nullable();
-          $table->integer('max_seats')->nullable();
            $table->integer('current_seats_taken')->nullable()->default(0);
 
 

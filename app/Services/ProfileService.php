@@ -74,4 +74,30 @@ class ProfileService
             ['fcm_token' => $token]
         );
     }
+    public function deleteAccount($user)
+{
+    return DB::transaction(function () use ($user) {
+        // 1. إبطال جميع توكنات الوصول (تسجيل خروج إجباري من كل الأجهزة)
+        $user->tokens()->delete();
+
+        // 2. التعامل مع الملف الشخصي (Profile)
+        if ($user->profile) {
+            $user->profile->update([
+                // تحرير رقم الهاتف بإضافة كود فريد
+                'phone_number' => 'del_' . now()->timestamp . '_' . $user->profile->phone_number,
+                'is_active' => false
+            ]);
+            $user->profile->delete(); // حذف ناعم للبروفايل
+        }
+
+        // 3. التعامل مع سجل المستخدم الأساسي (User)
+        $user->update([
+            // تحرير الإيميل للسماح بإعادة التسجيل به مستقبلاً
+            'email' => 'del_' . now()->timestamp . '_' . $user->email,
+            'is_active' => false
+        ]);
+
+        return $user->delete(); // حذف ناعم للمستخدم
+    });
+}
 }

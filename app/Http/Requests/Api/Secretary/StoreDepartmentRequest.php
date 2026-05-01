@@ -17,10 +17,13 @@ class StoreDepartmentRequest extends FormRequest
 
     public function rules(): array
     {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        $instituteId = $user->hasRole('super_admin') ? $this->institute_id : $user->institute_id;
         return [
             'name_ar' => [
                 'required', 'string', 'max:100',
-                Rule::unique('departments')->where(fn($q) => $q->where('institute_id', $this->institute_id))
+                Rule::unique('departments')->where(fn($q) => $q->where('institute_id', $instituteId))
             ],
             'name_en'        => 'nullable|string|max:100',
             'institute_id'   => 'sometimes|exists:institutes,id',

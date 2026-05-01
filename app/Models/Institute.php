@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -39,7 +39,7 @@ class Institute extends Model
 
     ];*/
     protected $guarded = ['id'];
-    protected $appends = ['logo_url', 'cover_url'];
+
     //حساب الأولوية الذكية: أولاً حسب مستوى الأولوية، ثم حسب رصيد النقاط، وأخيراً حسب زمن الاستجابة
     public function scopeOrderBySmartPriority($query)
             {
@@ -109,5 +109,27 @@ public function favorites()
 protected $casts = [
     'status' => 'boolean', // سيحول الـ 1 إلى true والـ 0 إلى false تلقائياً
 ];
+/**
+ * جلب كافة الحجوزات التابعة للمعهد من خلال الإعلانات
+ */
+public function bookings()
+{
+    return $this->hasManyThrough(
+        \App\Models\Booking::class,      // الموديل الهدف
+        \App\Models\Advertisement::class, // الموديل الوسيط
+        'institute_id',   // المفتاح الأجنبي في جدول الإعلانات (يشير للمعهد)
+        'bookable_id',    // المفتاح الأجنبي في جدول الحجوزات (الذي يشير للإعلان)
+        'id',             // المفتاح الأساسي في جدول المعاهد
+        'id'              // المفتاح الأساسي في جدول الإعلانات
+    )->where('bookable_type', \App\Models\Advertisement::class);
+    // السطر الأخير مهم جداً لأن الحجوزات قد تكون لكورسات مباشرة وليس لإعلانات
+}
+public function getTotalCommissionAttribute()
+{
+    // هذا سيستخدمه السوبر أدمن لرؤية أرباحه من هذا المعهد
+    return $this->advertisements()->withCount('bookings')->get()->sum(function($ad) {
+        return $ad->bookings_count * ($ad->price * ($this->commission_rate / 100));
+    });
+}
 
 }

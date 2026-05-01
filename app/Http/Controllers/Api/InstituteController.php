@@ -5,10 +5,11 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Institute;
 use App\Services\InstituteService;
-use App\Http\Requests\StoreInstituteRequest;
-use App\Http\Requests\UpdateInstituteRequest;
+use App\Http\Requests\Api\Admin\StoreInstituteRequest;
+use App\Http\Requests\Api\Admin\UpdateInstituteRequest;
 use App\Traits\ApiResponse;
 use App\Http\Resources\InstituteResource;
+use Illuminate\Support\Facades\Gate;
 
 use Illuminate\Http\JsonResponse;
 
@@ -21,14 +22,24 @@ class InstituteController extends Controller
     public function __construct(protected InstituteService $service) {}
 
     public function index(Request $request): AnonymousResourceCollection
-    {  $userLat = $request->lat ?? $request->user_lat;
-    $userLng = $request->lng ?? $request->user_lng;
+    {
+        /** @var \App\Models\User $user */
         $user = auth('sanctum')->user();
-        $isSuperAdmin = ($user instanceof \App\Models\User) && $user->hasRole('super_admin');
+        $userLat = $request->lat ?? $request->user_lat;
+    $userLng = $request->lng ?? $request->user_lng;
+       $isSuperAdmin = $user && $user->hasRole('super_admin');
+    $isSecretary = $user && $user->isStatusAdmin();
 
+    $institutes = Institute::query()
+        ->when(!$isSuperAdmin, function ($query) use ($user, $isSecretary) {
+            return $query->where(function ($q) use ($user, $isSecretary) {
+                $q->active(); // المعاهد النشطة للجميع
 
-        $institutes = Institute::query()->when(!$isSuperAdmin, function ($query) {
-            return $query->active(); // إذا لم يكن المستخدم سوبر أدمن، نعرض فقط المعاهد النشطة
+                // إذا كان سكرتير، أظهر معهده أيضاً حتى لو غير نشط
+                if ($isSecretary) {
+                    $q->orWhere('id', $user->institute_id);
+                }
+            });
         }) // استخدام Scope المعاهد النشطة فقط
             ->withDistance($userLat, $userLng) // حساب المسافة إذا أرسل المستخدم موقعه
             ->orderBySmartPriority() // الترتيب الحاكم (الأولوية الذكية)
@@ -55,51 +66,74 @@ class InstituteController extends Controller
         }
     }
 
-    public function show($id): InstituteResource|JsonResponse
+    public function show($id, Request $request): InstituteResource|JsonResponse
     {
         $institute = Institute::with(['departments', 'courses', 'advertisements'])->find($id);
         if (!$institute) {
             return $this->errorResponse(__('validation.custom.institute.not_found'), 404);
         }
         // التحقق من حالة المعهد قبل العرض
+        /** @var \App\Models\User $user */
         $user = auth('sanctum')->user();
-        $isSuperAdmin = ($user instanceof \App\Models\User) && $user->hasRole('super_admin');
-        if (!$institute->status && !$isSuperAdmin) {
-        return $this->errorResponse(__('validation.custom.institute.institute_disabled'), 404);
-    }
 
+    // 1. هل هو سوبر أدمن؟
+    $isSuperAdmin = $user && $user->hasRole('super_admin');
+
+    // 2. هل هو سكرتير هذا المعهد تحديداً؟
+    $isStaffOfThisInstitute = $user && $user->isStatusAdmin() && $user->institute_id == $institute->id;
+
+    // المنطق الجديد: إذا كان المعهد معطلاً، اسمح فقط للسوبر أدمن أو سكرتير المعهد بالدخول
+    if (!$institute->status && !$isSuperAdmin && !$isStaffOfThisInstitute) {
+        return $this->errorResponse(__('validation.custom.institute.institute_disabled'), 403);
+    }
         $institute->loadCount(['departments', 'courses', 'advertisements']);
         return new InstituteResource($institute);
     }
 
+// ... داخل InstituteController ...
 
-    public function update(UpdateInstituteRequest $request, $id): InstituteResource|JsonResponse
-    {
-        $institute = Institute::find($id);
-        if (!$institute) {
-            return $this->errorResponse(__('validation.custom.institute.not_found'), 404);
-        }
-        try {
-            $updated = $this->service->update($institute, $request->validated());
-            return $this->successResponse(new InstituteResource($updated), __('validation.custom.institute.updated_success'));
-        } catch (\Exception $e) {
-            return $this->errorResponse(__('validation.custom.institute.update_failed') , 500);
-        }
+public function update(UpdateInstituteRequest $request, $id): JsonResponse
+{
+    $institute = Institute::find($id);
+    if (!$institute) {
+        return $this->errorResponse(__('validation.custom.institute.not_found'), 404);
     }
 
-    public function destroy($id): JsonResponse
-    {
-        $institute = Institute::find($id);
-        if (!$institute) {
-            return $this->errorResponse(__('validation.custom.institute.not_found'), 404);
-        }
-        try {
-            $this->service->delete($institute);
-            return $this->successResponse(null, __('validation.custom.institute.deleted_success'));
-        } catch (\Exception $e) {
-            return $this->errorResponse(__('validation.custom.institute.delete_failed'), 500);
-        }
+    // فحص السياسة: سيعرض الرسالة المخصصة من الـ Policy عند الرفض
+    Gate::authorize('update', $institute);
+
+    try {
+        // نمرر البيانات التي تم التحقق منها (والتي قمنا بتصفيتها في الـ Request للسكرتير)
+        $updated = $this->service->update($institute, $request->validated());
+
+        return $this->successResponse(
+            new InstituteResource($updated),
+            __('validation.custom.institute.updated_success')
+        );
+    } catch (\Exception $e) {
+        // إرجاع رسالة الخطأ الفعلية إذا حدث خطأ في السيرفس
+        return $this->errorResponse($e->getMessage(), 500);
     }
+}
+
+public function destroy($id): JsonResponse
+{
+    $institute = Institute::find($id);
+    if (!$institute) {
+        return $this->errorResponse(__('validation.custom.institute.not_found'), 404);
+    }
+
+    // فحص السياسة: السوبر أدمن فقط من يملك الصلاحية
+    Gate::authorize('delete', $institute);
+
+    try {
+        $this->service->delete($institute);
+        return $this->successResponse(null, __('validation.custom.institute.deleted_success'));
+    } catch (\Exception $e) {
+        // في حال كان المعهد مرتبطاً بحجوزات نشطة، ستظهر الرسالة من السيرفس هنا
+        return $this->errorResponse($e->getMessage(), 400);
+    }
+}
     /**
  * تفعيل أو تعطيل المعهد
  */
@@ -120,6 +154,33 @@ public function toggleStatus($id): JsonResponse
         return $this->successResponse(new InstituteResource($updated), $message);
     } catch (\Exception $e) {
         return $this->errorResponse(__('validation.custom.institute.status_update_failed'), 500);
+    }
+}
+// FinanceController أو داخل InstituteController
+public function purchasePoints(Request $request, $id)
+{
+    $request->validate(['points' => 'required|integer|min:1']);
+    $institute = Institute::findOrFail($id);
+
+    // استدعاء السيرفس
+    $updatedInstitute = $this->service->addPoints($institute, $request->points);
+
+    return response()->json([
+        'message' => __('validation.custom.institute.points_purchased_success'),
+        'balance' => $updatedInstitute->points_balance,
+        'priority' => $updatedInstitute->priority_level
+    ]);
+}
+public function updateCommissionRate(Request $request, $id): JsonResponse
+{
+    $request->validate(['commission_rate' => 'required|numeric|between:0,100']);
+    $institute = Institute::findOrFail($id);
+
+    try {
+        $updatedInstitute = $this->service->updateCommissionRate($institute, $request->commission_rate);
+        return $this->successResponse(new InstituteResource($updatedInstitute), __('validation.custom.institute.commission_updated_success'));
+    } catch (\Exception $e) {
+        return $this->errorResponse(__('validation.custom.institute.commission_update_failed'), 500);
     }
 }
 }

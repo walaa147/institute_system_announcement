@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Http\Requests;
+namespace App\Http\Requests\Api\Admin;
 use App\Http\Requests\Api\ApiBaseRequest;
 use Illuminate\Foundation\Http\FormRequest;
-
+use Illuminate\Validation\Rule;
 class StoreInstituteRequest extends ApiBaseRequest
 {
     public function authorize(): bool { return true; }
@@ -13,13 +13,21 @@ class StoreInstituteRequest extends ApiBaseRequest
         return [
             'name_ar'     => 'required|string|max:255',
             'name_en'     => 'nullable|string|max:255',
-            'code'    => 'required|string|unique:institutes,code',
+           'code' => [
+            'required',
+            'string',
+            Rule::unique('institutes', 'code')->whereNull('deleted_at')
+        ],
             'description_ar' => 'nullable|string',
             'description_en' => 'nullable|string',
             'status' => 'required|boolean',
             'address'     => 'nullable|string|max:255',
             'phone'       => 'nullable|string|max:20',
-            'email'       => 'nullable|email|max:100|unique:institutes,email',
+          'email' => [
+            'required',
+            'email',
+            Rule::unique('institutes', 'email')->whereNull('deleted_at')
+        ],
             'website'     => 'nullable|url|max:255',
             'logo'       => 'nullable|image|max:5120', // 5MB
             'cover_photo' => 'nullable|image|max:10240', // 10MB
@@ -27,8 +35,8 @@ class StoreInstituteRequest extends ApiBaseRequest
             'points_balance'  => ['nullable', 'integer', 'min:0'],
             'avg_response_time'=>'nullable|numeric|min:0', // حماية من أوقات استجابة سالبة
 
-'lat'             => ['nullable', 'numeric', 'between:-90,90'], // حماية إحداثيات جغرافية صحيحة
-'lng'             => ['nullable', 'numeric', 'between:-180,180'],
+'lat'=> ['nullable', 'numeric', 'between:-90,90'], // حماية إحداثيات جغرافية صحيحة
+'lng' => ['nullable', 'numeric', 'between:-180,180'],
 
             'priority_level' => ['nullable', 'integer', 'min:0'], // حماية من مستويات أولوية سالبة
         ];

@@ -72,4 +72,27 @@ class Booking extends Model
     {
         return $this->belongsTo(User::class, 'processed_by');
     }
+    protected static function booted()
+{
+    static::created(function ($booking) {
+        // التأكد أن الحجز يخص إعلان
+        if ($booking->bookable_type === 'App\Models\Advertisement' || str_contains($booking->bookable_type, 'Advertisement')) {
+
+            // جلب المسار الصحيح للموديل كما هو مخزن في الداتابيز
+            $preciseType = (new \App\Models\Advertisement())->getMorphClass();
+
+            // التحديث المباشر
+            \Illuminate\Support\Facades\DB::table('waiting_lists')
+                ->where('user_id', $booking->user_id)
+                ->where('bookable_id', $booking->bookable_id)
+                ->where('bookable_type', $preciseType)
+                ->where('status', 'notified')
+                ->update([
+                    'status' => 'converted',
+                    'updated_at' => now()
+                ]);
+        }
+    });
+
+}
 }

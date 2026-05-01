@@ -26,6 +26,16 @@ class BookingController extends Controller
                 'data' => new BookingResource($booking->load(['bookable', 'user']))
             ], 201);
         } catch (\Exception $e) {
+            if($e->getMessage() === "FULL_MAX_SEATS") {
+                return response()->json([
+                'status' => false,
+                'code'   => 'WAITLIST_OPTION', // كود خاص للموبايل ليظهر زر "انضم للانتظار"
+                'message' => __('validation.custom.booking.no_seats_available'),
+                'bookable_id' => $request->bookable_id,
+                'bookable_type' => 'App\Models\Advertisement'
+            ], 200); // نرجع 200 لأنها ليست خطأ في السيرفر بل حالة منطقية
+        }
+
             return response()->json(['status' => false, 'message' => $e->getMessage()], 400);
         }
     }
@@ -68,10 +78,31 @@ public function index()
     } elseif ($user->hasRole('student')) {
         $query->where('user_id', $user->id);
     }
+    $bookings = $query->latest()->paginate(10);
+    if ($bookings->isEmpty()) {
+        return response()->json([
+            'status' => true,
+            'message' => __('validation.custom.booking.list_empty'),
 
-    return BookingResource::collection($query->latest()->paginate(10));
+            'data' => []
+        ], 200);
+    }
+
+    return BookingResource::collection($bookings)->additional([
+        'status' => true,
+        'message' => __('validation.custom.booking.list_retrieved_success')
+    ]);
 }
-public function show(Booking $booking)
+public function show($id)
+{
+    $booking = Booking::with(['user', 'bookable', 'processor'])->find($id);
+
+    if (!$booking) {
+        return response()->json([
+            'status' => false,
+            'message' => __('validation.custom.booking.not_found')
+        ], 404);
+    }
 {
     // فحص الصلاحية: هل هذا الحجز يخص الطالب؟ أو هل هو ضمن معهد السكرتير؟
     // لارافيل سيبحث تلقائياً عن دالة view($user, $booking) في الـ BookingPolicy
@@ -82,10 +113,25 @@ public function show(Booking $booking)
         'data' => new BookingResource($booking->load(['user', 'bookable', 'processor']))
     ]);
 }
-public function cancel(Booking $booking)
+}
+public function cancel($id)
 {
+    $booking = Booking::find($id);
+
+    if (!$booking) {
+        return response()->json([
+            'status' => false,
+            'message' => '__("validation.custom.booking.not_found")'
+        ], 404);
+    }
     // فحص الصلاحية من البوليسي
-    Gate::authorize('cancel', $booking);
+    $response = Gate::inspect('cancel', $booking);
+    if ($response->denied()) {
+        return response()->json([
+            'status' => false,
+            'message' => $response->message() // هنا ستظهر الرسالة التي كتبناها في الـ Policy
+        ], 403);
+    }
 
     try {
         // استدعاء الخدمة لتنفيذ الإلغاء وتحرير المقعد
@@ -93,7 +139,7 @@ public function cancel(Booking $booking)
 
         return response()->json([
             'status' => true,
-            'message' => 'تم إلغاء الحجز بنجاح وتحرير المقعد.',
+            'message' => __('validation.custom.booking.cancelled_success'),
             'data' => new BookingResource($updatedBooking)
         ]);
     } catch (\Exception $e) {
@@ -119,5 +165,30 @@ public function cancel(Booking $booking)
             'message' => __('validation.custom.booking.payment_authorized'),
             'data'    => new BookingResource($authorizedBooking)
         ]);
-    }
+        }
+//     }
+// public function updateStatus(UpdateBookingStatusRequest $request, Booking $booking)
+// {
+//     // تحميل العلاقة فوراً لضمان وجود البيانات للـ Policy
+//     $booking->loadMissing('bookable');
+
+//     // الآن الفحص سيكون دقيقاً
+//     Gate::authorize('updateStatus', $booking);
+
+//     try {
+//         // تنفيذ التحديث عبر الخدمة
+//         $updatedBooking = $this->bookingService->updateStatus($booking, $request->status, Auth::id());
+
+//         return response()->json([
+//             'status' => true,
+//             'message' => __('validation.custom.booking.status_updated_success'),
+//             'data' => new BookingResource($updatedBooking)
+//         ]);
+//     } catch (\Exception $e) {
+//         return response()->json(['status' => false, 'message' => $e->getMessage()], 400);
+//     }
+// }
+// }
+
+
 }

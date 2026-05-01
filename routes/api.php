@@ -12,7 +12,7 @@ use App\Http\Controllers\Api\LikeController;
 use App\Http\Controllers\Api\InstituteController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\BookingController;
-
+use App\Http\Controllers\Api\WaitingListController;
 use App\Http\Controllers\Api\FavoriteInstituteController;
 
 use Termwind\Components\Raw;
@@ -145,21 +145,25 @@ Route::prefix('v1')->group(function () {
 
        Route::prefix('view')->group(function () {
 //  institute
-            Route::get('/institutes', [InstituteController::class, 'index']);
-            Route::get('/institutes/{institute}', [InstituteController::class, 'show']);
+Route::prefix('view')->middleware('auth_optional')->group(function () {
+    Route::get('/institutes', [InstituteController::class, 'index']);
+    Route::get('/institutes/{institute}', [InstituteController::class, 'show']);
+
+    // advertisements
+     Route::get('/advertisements', [AdvertisementController::class, 'index']);
+    Route::get('/advertisements/{advertisement}', [AdvertisementController::class, 'show']);
+
 // department
             Route::get('/departments', [DepartmentController::class, 'index']);
             Route::get('/departments/{department}', [DepartmentController::class, 'show']);
-//Advertisement
-            Route::get('/advertisements', [AdvertisementController::class, 'index']);
-            Route::get('/advertisements/{advertisement}', [AdvertisementController::class, 'show']);
 
+});
  // Courses
             Route::get('/courses', [CourseController::class, 'publicIndex']);
             Route::get('/courses/{course}', [CourseController::class, 'show']);
         });
         // المسارات المحمية (لا يمكن الدخول لها إلا بتوكن صالح)
-        Route::middleware('auth:sanctum')->group(function () {
+        Route::middleware(['auth:sanctum', 'check.active'])->group(function () {
             Route::post('logout', [AuthController::class, 'logout']);
             Route::post('courses/toggle-like/{id}', [CourseController::class, 'toggleLike']);
 
@@ -167,6 +171,11 @@ Route::prefix('v1')->group(function () {
             Route::get('show', 'index');          // الطالب يرى حجوزاته / السكرتير يرى حجوزات معهده
 
             Route::get('show/{booking}', 'show');  // عرض تفاصيل حجز معين
+        });
+        Route::prefix('waiting-list')->controller(WaitingListController::class)->group(function () {
+            Route::get('my-list', 'myWaitlist');
+             Route::post('join', 'join');
+                Route::get('show/{waitingList}', 'show'); //
         });
               // بيانات المستخدم الشخصية
    Route::get('/user', function (Request $request) {
@@ -176,9 +185,11 @@ Route::prefix('v1')->group(function () {
             Route::prefix('bookings')->controller(BookingController::class)->group(function () {
             Route::post('create', 'store');         // إنشاء حجز جديد (للطالب)
 
-            Route::post('cancel',  'cancel');
+            Route::post('{booking}/cancel', 'cancel');
             Route::post('{booking}/simulate-payment',  'simulatePayment');
+
         });
+
 
 
 
@@ -186,14 +197,17 @@ Route::prefix('profile')->controller(ProfileController::class   )->group(functio
   Route::get('/show', 'show');
 Route::post('/update', 'update');
 Route::post('/update-fcm-token', 'updateFcmToken');
+Route::delete('/destroy-account', 'destroyAccount')->middleware('role:student');
     });
     // --- مسارات مدير النظام فقط (Super Admin) ---
     Route::middleware(['is_admin'])->group(function () { // سننشئ هذا الميدلوير أو نستخدم الفحص المباشر
         Route::prefix('institutes')->controller(InstituteController::class)->group(function () {
             Route::post('store', 'store');
-            Route::post('update/{institute}', 'update');
+
             Route::delete('destroy/{institute}', 'destroy');
             Route::post('toggle-status/{institute}', 'toggleStatus');
+            Route::post('purchase-points/{institute}', 'purchasePoints');
+            Route::post('update-commission-rate/{institute}', 'updateCommissionRate');
         });
         Route::prefix('secretaries')->controller(SecretaryController::class)->group(function () {
             Route::get('show', 'index');
@@ -218,6 +232,7 @@ Route::post('/update-fcm-token', 'updateFcmToken');
             Route::delete('destroy/{advertisement}', 'destroy');
             Route::post('toggle-status/{advertisement}', 'toggleStatus');
         });
+        Route::post('update/{institute}', [InstituteController::class, 'update']);
 Route::prefix('bookings')->controller(BookingController::class)->group(function () {
                 Route::post('{booking}/status', 'updateStatus'); // تأكيد، إلغاء، أو تسجيل حضور
             });
@@ -229,8 +244,10 @@ Route::prefix('bookings')->controller(BookingController::class)->group(function 
             Route::post('toggle-status/{course}', 'toggleStatus');
              Route::post('index', 'index');
         });
+        Route::prefix('waiting-list')->controller(WaitingListController::class)->group(function () {
+            Route::get('index', 'index'); // عرض قائمة الانتظار لإعلان معين
         });
-
+      });
 
         //  مسارات الطلاب فقط Student
         Route::middleware(['is_student'])->group(function () {

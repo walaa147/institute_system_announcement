@@ -48,11 +48,14 @@ class SecretaryService
         return $user->refresh();
     }
 
-    public function delete(User $user): bool
-    {
-        return DB::transaction(function () use ($user) {
-            $user->profile()->delete();
-            return $user->delete();
-        });
-    }
+    public function delete(User $user): bool {
+    return DB::transaction(function () use ($user) {
+        $user->update([
+            'email' => 'deleted_' . now()->timestamp . '_' . $user->email,
+            'is_active' => false
+        ]);
+        if ($user->profile) { $user->profile()->delete(); }
+        return $user->delete();
+    });
+}
 }

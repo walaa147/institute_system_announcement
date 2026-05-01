@@ -42,7 +42,23 @@ class UpdateAdvertisementRequest extends FormRequest
             ],
 
             // إدارة المقاعد (مهم جداً)
-            'max_seats'           => 'nullable|integer|min:1',
+            'max_seats' => [
+            'sometimes',
+            'integer',
+            'min:1',
+           function ($attribute, $value, $fail) {
+    $ad = $this->route('advertisement');
+
+    // إذا تم تمرير الـ ID فقط بدلاً من الـ Model Binding
+    if (is_scalar($ad)) {
+        $ad = \App\Models\Advertisement::find($ad);
+    }
+
+    if ($ad && $value < $ad->current_seats_taken) {
+        $fail(__('validation.custom.advertisement.max_seats_less_than_taken'));
+    }
+},
+        ],
             'current_seats_taken' => 'nullable|integer|min:0|lte:max_seats', // يجب ألا يتجاوز المقاعد المتاحة
 
             // حقول المدرب والصورة

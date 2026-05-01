@@ -6,6 +6,9 @@ use App\Models\Institute;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\UploadedFile;
+use App\Services\ImageService;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 
 use Illuminate\Support\Facades\Storage;
@@ -34,16 +37,14 @@ class InstituteService
         $institute = Institute::create($data);
 
         $this->refreshPriority($institute);
-
+// داخل دالة store بعد إنشاء المعهد
+Log::info("تم إنشاء معهد جديد", [
+    'id' => $institute->id,
+    'name' => $institute->name_ar,
+    'by_user' =>Auth::id()
+]);
 
         return $institute->refresh(); // إعادة جلب المعهد بعد الحفظ للتأكد من تحديث الحقول المحسوبة مثل الأولوية
-           // unset($data['logo']);
-// 3. توثيق الحدث في سجل التدقيق المركزي
-            // AuditLog::create([
-            //     'action' => 'create_institute',
-            //     'description' => "تم إنشاء معهد جديد باسم: {$institute->name}",
-            //     'user_id' => auth()->id(),
-            // ]);
 
         });
     }
@@ -51,18 +52,28 @@ class InstituteService
     public function update(Institute $institute, array $data): Institute
     {
         return DB::transaction(function () use ($institute, $data) {
-         if (isset($data['logo'])&& $data['logo'] instanceof UploadedFile) {
+            /** @var \App\Models\User $user */
+            $user = auth('sanctum')->user();
+
+            // حماية الحقول الحساسة من التعديل غير المصرح به
+            if (!$user->hasRole('super_admin')) {
+                unset($data['commission_rate'], $data['status'], $data['points_balance']);
+            }
+
+            if (isset($data['logo'])&& $data['logo'] instanceof UploadedFile) {
                 $data['logo'] = $this->imageService->updateImage(
                     $data['logo'], $institute->logo, 'institutes/logos');
             }
             if (isset($data['cover_photo'])&& $data['cover_photo'] instanceof UploadedFile) {
                 $data['cover_photo'] = $this->imageService->updateImage($data['cover_photo'], $institute->cover_photo, 'institutes/covers');
             }
-            if(isset($data['name_ar']) || isset($data['name_en'])) {
-                $nameForSlug = $data['name_en'] ?? $data['name_ar'] ?? $institute->name_ar;
-                $data['slug'] = Str::slug($nameForSlug) . '-' . Str::random(6); // تحديث السلاگ إذا تم تغيير الاسم
-            }
-
+            unset($data['slug']); // لا تسمح بتغيير السلاگ لأنه يؤثر على الروابط
+               if (!array_key_exists('lat', $data) || $data['lat'] === null) {
+    unset($data['lat']);
+}
+if (!array_key_exists('lng', $data) || $data['lng'] === null) {
+    unset($data['lng']);
+}
 
             $institute->update($data);
             $this->refreshPriority($institute);
@@ -72,18 +83,46 @@ class InstituteService
         });
     }
 
-    public function delete(Institute $institute): bool
-    {
-        return DB::transaction(function () use ($institute) {
-           if ($institute->logo) {
-                $this->imageService->deleteImage($institute->logo);
-            }
-            if ($institute->cover_photo) {
-                $this->imageService->deleteImage($institute->cover_photo);
-            }
-            return $institute->delete();
-        });
-    }
+  public function delete(Institute $institute): bool
+{
+    return DB::transaction(function () use ($institute) {
+        // 1. التحقق من الحجوزات النشطة (كودك الأصلي - ممتاز)
+        if ($institute->bookings()->whereIn('status', ['confirmed', 'pending'])->exists()) {
+            throw new \Exception(__('validation.custom.institute.has_active_bookings'));
+        }
+
+        // 2. التعامل مع السكرتارية (الإضافة الجديدة)
+        // جلب معرفات المستخدمين التابعين للمعهد
+        $userIds = \App\Models\User::where('institute_id', $institute->id)->pluck('id');
+
+        if ($userIds->isNotEmpty()) {
+            // تعطيل الحسابات
+            \App\Models\User::whereIn('id', $userIds)->update(['is_active' => false]);
+
+            // طرد السكرتارية من النظام فوراً بإبطال التوكنات
+            DB::table('personal_access_tokens')
+                ->where('tokenable_type', \App\Models\User::class)
+                ->whereIn('tokenable_id', $userIds)
+                ->delete();
+        }
+
+        // 3. تنظيف الصور (كودك الأصلي - ممتاز)
+        if ($institute->logo) {
+            $this->imageService->deleteImage($institute->logo);
+        }
+        if ($institute->cover_photo) {
+            $this->imageService->deleteImage($institute->cover_photo);
+        }
+        $institute->update([
+            'email' => 'deleted_' . now()->timestamp . '_' . $institute->email,
+            'code'  => 'old_' . now()->timestamp . '_' . $institute->code,
+            'status' => 0 // تعطيله بالمرة
+        ]);
+
+        // 4. الحذف الناعم للمعهد
+        return $institute->delete();
+    });
+}
     // دالة لتحديث الأولوية الذكية بناءً على النقاط وسرعة الرد
     public function refreshPriority(Institute $institute): void
     {
@@ -114,5 +153,34 @@ public function toggleStatus(Institute $institute): Institute
 
 
     return $institute->refresh();
+}
+/**
+ * تحديث نسبة العمولة يدوياً بواسطة السوبر أدمن
+ */
+public function updateCommissionRate(Institute $institute, float $newRate): Institute
+{
+    $institute->update(['commission_rate' => $newRate]);
+    return $institute->refresh();
+}
+
+/**
+ * إضافة نقاط للمعهد (سواء بالشراء أو كمكافأة)
+ */
+public function addPoints(Institute $institute, int $points): Institute
+{
+    $institute->increment('points_balance', $points);
+
+    // بعد إضافة النقاط، يجب إعادة حساب مستوى الأولوية فوراً
+    $this->refreshPriority($institute);
+
+    return $institute->refresh();
+}
+
+/**
+ * دالة مساعدة لحساب صافي العمولة من مبلغ معين
+ */
+public function calculateCommissionAmount(Institute $institute, float $amount): float
+{
+    return ($amount * $institute->commission_rate) / 100;
 }
 }

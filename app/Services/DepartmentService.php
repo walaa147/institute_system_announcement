@@ -15,20 +15,20 @@ class DepartmentService
     // 1. إذا كان سكرتير أو أدمن معهد، نأخذ المعهد من حسابه إجبارياً (للأمان)
     if ($user->hasRole('secretary') || $user->hasRole('admin')) {
         if (!$user->institute_id) {
-            throw new \Exception("هذا الحساب سكرتير ولكن غير مرتبط بمعهد في قاعدة البيانات.");
+            throw new \Exception(__('validation.custom.user.no_institute'));
         }
         $data['institute_id'] = $user->institute_id;
     }
     // 2. إذا كان سوبر أدمن، نتحقق أنه أرسل institute_id في الطلب (Postman)
     elseif ($user->hasRole('super_admin')) {
         if (!isset($data['institute_id'])) {
-            throw new \Exception("يجب على السوبر أدمن تحديد رقم المعهد (institute_id) في الطلب.");
+            throw new \Exception(__('validation.custom.institute.institute_id_required'));
         }
         // هنا سيبقى الـ institute_id كما هو مرسل في مصفوفة $data
     }
 
     else {
-        throw new \Exception("لا تملك الصلاحية لتحديد معهد لهذا القسم.");
+        throw new \Exception(__('validation.custom.department.not_allowed'));
     }
         return DB::transaction(function () use ($data) {
 
@@ -52,7 +52,7 @@ class DepartmentService
     {
         return DB::transaction(function () use ($department) {
             // منع الحذف إذا كان هناك كورسات أو دبلومات
-            if ($department->courses()->exists() || $department->diplomas()->exists()) {
+            if ($department->courses()->exists() || $department->diplomas()->exists()|| $department->advertisements()->exists()) {
                 throw new \Exception(__('validation.custom.department.has_related_data'));
             }
             return $department->delete();

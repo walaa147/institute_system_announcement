@@ -46,24 +46,37 @@ class Diploma extends Model
 
     /*
     |--------------------------------------------
-    | AUTO GENERATE (slug + code)
+    | BOOT METHODS
     |--------------------------------------------
     */
     protected static function boot()
     {
         parent::boot();
 
+        // لوجيك عند الإنشاء (slug + code)
         static::creating(function ($diploma) {
-
-            // slug تلقائي
             if (empty($diploma->slug)) {
                 $base = $diploma->title_ar ?? $diploma->title_en ?? 'diploma';
                 $diploma->slug = Str::slug($base) . '-' . time();
             }
 
-            // code تلقائي
             if (empty($diploma->code)) {
                 $diploma->code = 'DIP-' . rand(1000, 9999);
+            }
+        });
+
+        // لوجيك عند التحديث (تزامن الإعلانات)
+        static::updated(function ($diploma) {
+            $relevantFields = ['name_ar', 'description_ar', 'total_cost', 'photo_path', 'duration'];
+
+            if ($diploma->wasChanged($relevantFields)) {
+                $diploma->advertisements()->update([
+                    'title_ar'              => $diploma->name_ar,
+                    'description_ar'        => $diploma->description_ar,
+                    'price_before_discount' => $diploma->total_cost,
+                    'image_path'            => $diploma->photo_path,
+                    'duration'              => $diploma->duration,
+                ]);
             }
         });
     }
@@ -73,7 +86,6 @@ class Diploma extends Model
     | RELATIONS
     |--------------------------------------------
     */
-
     public function courses(): BelongsToMany
     {
         return $this->belongsToMany(Course::class, 'course_diploma')
@@ -117,12 +129,16 @@ class Diploma extends Model
         return $this->morphMany(WaitingList::class, 'bookable');
     }
 
+    public function advertisements(): MorphMany
+    {
+        return $this->morphMany(Advertisement::class, 'advertisable');
+    }
+
     /*
     |--------------------------------------------
     | ACCESSORS
     |--------------------------------------------
     */
-
     public function getPhotoUrlAttribute(): ?string
     {
         return $this->photo_path
@@ -135,7 +151,6 @@ class Diploma extends Model
     | SCOPES
     |--------------------------------------------
     */
-
     public function scopeActive($query)
     {
         return $query->where('is_active', true);

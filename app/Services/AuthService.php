@@ -71,11 +71,15 @@ class AuthService
         if (isset($credentials['fcm_token'])) {
             $user->profile()->update(['fcm_token' => $credentials['fcm_token']]);
         }
+        $user->tokens()->delete();
+
+    // الآن ننشئ التوكن الجديد
+    $token = $user->createToken('auth_token')->plainTextToken;
 
         return [
             // جلب المستخدم مع ملفه الشخصي وأدواره الحالية
             'user'  => $user->load(['profile', 'roles']),
-            'token' => $user->createToken('auth_token')->plainTextToken
+            'token' => $token
         ];
     }
 
@@ -110,7 +114,7 @@ class AuthService
                     $user->profile()->update(['fcm_token' => $googleData['fcm_token']]);
                 }
             }
-
+$user->tokens()->delete(); // أضيفيها قبل return في دالة جوجل
             return [
                 'user'  => $user->load(['profile', 'roles']),
                 'token' => $user->createToken('auth_token')->plainTextToken
